@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { createServer } from 'http'
 import { WebSocketHandler } from './services/websocket-handler.js'
 import { sshManager } from './services/ssh-manager.js'
@@ -9,6 +10,10 @@ import filesRouter from './routes/files.js'
 import monitorRouter from './routes/monitor.js'
 import credentialsRouter from './routes/credentials.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
+
+// ESM 兼容的 __dirname
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const app = express()
 const PORT = process.env.PORT || 4000
