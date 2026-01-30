@@ -1,79 +1,83 @@
-# Nginx 反向代理项目
+# WebSSH Terminal
 
-基于 Docker Compose 的高性能 Nginx 反向代理解决方案，针对国内用户访问优化，配合 Cloudflare CDN 使用。
+基于 Web 的 SSH 终端客户端，支持文件管理和多会话。
 
-## 项目特性
+## 功能特性
 
-- 🚀 高性能配置（4核8G AMD EPYC 优化）
-- 🌏 针对国内用户访问优化
-- 🔒 完整的安全头配置
-- 📊 结构化日志记录
-- 🔄 自动重启和日志轮转
-- 🌐 WebSocket 支持
-- 🛡️ 智能限流策略
-- 📦 Docker 容器化部署
+- �️ Web置 终端 - 基于 xterm.js 的完整终端体验
+- 📁 文件管理 - SFTP 文件浏览、上传、下载
+- � 完多种认证 - 支持密码和私钥认证
+- � 结响应式设计 - 适配桌面和移动设备
+- 🔄 自动重连 - 断线自动重连机制
+- 💾 会话保存 - 保存常用连接配置
 
-## 快速开始
+## 快速部署
 
-### 1. 克隆项目
+### Docker 部署（推荐）
+
 ```bash
-git clone <your-repo-url>
-cd nginx-proxy
+docker run -d --name webssh -p 4000:4000 --restart unless-stopped yangjarod117/webssh:latest
 ```
 
-### 2. 创建必要目录
-```bash
-./scripts/setup.sh
+或使用 Docker Compose：
+
+```yaml
+services:
+  webssh:
+    image: yangjarod117/webssh:latest
+    container_name: webssh
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
 ```
 
-### 3. 配置站点
-复制示例配置并修改：
-```bash
-cp conf.d/example.conf conf.d/your-site.conf
-```
-
-### 4. 启动服务
 ```bash
 docker-compose up -d
 ```
 
-## 目录结构
+访问 `http://your-server:4000`
 
+### 从源码构建
+
+```bash
+# 克隆代码
+git clone https://github.com/yangjarod117/webssh.git
+cd webssh
+
+# 安装依赖
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
+
+# 开发模式
+cd backend && npm run dev    # 后端 :4000
+cd frontend && npm run dev   # 前端 :3000
+
+# 构建生产版本
+cd frontend && npm run build
+cd ../backend && npm run build
+NODE_ENV=production node dist/index.js
 ```
-.
-├── compose.yml          # Docker Compose 配置
-├── nginx.conf          # Nginx 主配置文件
-├── conf.d/             # 站点配置目录
-├── ssl/                # SSL 证书目录
-├── html/               # 静态文件目录
-├── logs/               # 日志目录
-├── modules/            # Nginx 模块目录
-└── scripts/            # 部署脚本
+
+### 构建 Docker 镜像
+
+```bash
+docker build -t yangjarod117/webssh:latest .
+docker push yangjarod117/webssh:latest
 ```
 
-## 配置说明
+## 技术栈
 
-### 性能优化
-- 4 个 worker 进程
-- 16384 连接数/进程
-- 启用 epoll 和 multi_accept
-- 优化的缓冲区设置
+- 前端：React + TypeScript + Tailwind CSS + xterm.js
+- 后端：Node.js + Express + ssh2
+- 部署：Docker
 
-### 安全配置
-- 最新的 Cloudflare IP 范围
-- 完整的安全头
-- TLS 1.3/1.2 支持
-- 智能限流策略
+## 使用说明
 
-### 缓存策略
-- 静态资源长期缓存
-- 配合 Cloudflare CDN
-- 反向代理缓存
-
-## 使用指南
-
-详见 [docs/](docs/) 目录下的文档。
+1. 打开浏览器访问 `http://your-server:4000`
+2. 输入 SSH 连接信息（主机、端口、用户名）
+3. 选择认证方式（密码或私钥）
+4. 点击连接
 
 ## 许可证
 
-MIT License
+MIT License © 2026

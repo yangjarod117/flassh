@@ -6,6 +6,7 @@ import { WebSocketHandler } from './services/websocket-handler.js'
 import { sshManager } from './services/ssh-manager.js'
 import sessionsRouter from './routes/sessions.js'
 import filesRouter from './routes/files.js'
+import monitorRouter from './routes/monitor.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
 
 const app = express()
@@ -29,6 +30,7 @@ app.get('/api/health', (_req, res) => {
 // Routes
 app.use('/api/sessions', sessionsRouter)
 app.use('/api/sessions', filesRouter)
+app.use('/api/sessions', monitorRouter)
 
 // 生产环境 SPA 路由回退
 if (process.env.NODE_ENV === 'production') {

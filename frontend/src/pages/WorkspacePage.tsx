@@ -9,6 +9,7 @@ import {
   ThemeSelector,
   LargeFileWarningDialog,
   isLargeFile,
+  SystemMonitor,
 } from '../components'
 import { useTabsStore, useEditorStore } from '../store'
 import { createLogEntry, addLog as addLogToList, clearLogs as clearLogsList } from '../utils/logs'
@@ -355,6 +356,9 @@ export function WorkspacePage({ session, sessions, onDisconnect, onAddConnection
           fileSize={largeFileWarning.file.size}
         />
       )}
+
+      {/* 系统监控面板 */}
+      <SystemMonitor sessionId={currentSession.id} />
     </div>
   )
 }

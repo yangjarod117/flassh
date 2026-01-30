@@ -55,3 +55,4 @@ export {
 export type { LogPanelProps } from './LogPanel'
 export { TerminalPanel } from './TerminalPanel'
 export { VirtualList, calculateVisibleRange } from './VirtualList'
+export { SystemMonitor } from './SystemMonitor'
