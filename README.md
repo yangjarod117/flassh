@@ -1,5 +1,7 @@
 # WebSSH Terminal
 
+> **⚠️ 声明：此项目为纯 AI 生成，本人不懂编程，也不会编程，纯属自娱自乐。**
+
 基于 Web 的 SSH 终端客户端，支持文件管理、系统监控和多会话。
 
 ## 功能特性
@@ -119,7 +121,20 @@ docker push yangjarod117/webssh:latest
 |------|------|--------|
 | PORT | 服务端口 | 4000 |
 | NODE_ENV | 运行环境 | development |
-| CREDENTIAL_KEY | 凭据加密密钥（32字节hex） | 随机生成 |
+| CREDENTIAL_KEY | 凭据加密密钥（64位hex字符串） | 随机生成 |
+
+### 生成加密密钥
+
+```bash
+# 使用 openssl 生成 64 位 hex 密钥
+openssl rand -hex 32
+
+# 或使用 Python
+python3 -c "import secrets; print(secrets.token_hex(32))"
+
+# 或使用 Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 | CREDENTIAL_STORE_PATH | 凭据存储路径 | ./data/credentials.json |
 
 ## 技术栈
