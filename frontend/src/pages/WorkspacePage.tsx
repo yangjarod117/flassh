@@ -261,10 +261,32 @@ export function WorkspacePage({ session, sessions, onDisconnect, onAddConnection
                   />
                 }
                 right={
-                  <TerminalPanel
-                    sessionId={activeTab?.sessionId || currentSession.id}
-                    onWsReady={(ws) => { terminalWsRef.current = ws }}
-                  />
+                  <div className="w-full h-full relative">
+                    {/* 为每个会话渲染独立的终端，通过显示/隐藏切换 */}
+                    {Array.from(sessions.entries()).map(([sessionId]) => {
+                      const isActive = sessionId === (activeTab?.sessionId || currentSession.id)
+                      return (
+                        <div
+                          key={sessionId}
+                          className={`absolute inset-0 ${isActive ? '' : 'pointer-events-none'}`}
+                          style={{ 
+                            opacity: isActive ? 1 : 0,
+                            zIndex: isActive ? 1 : 0
+                          }}
+                        >
+                          <TerminalPanel
+                            sessionId={sessionId}
+                            isActive={isActive}
+                            onWsReady={(ws) => { 
+                              if (isActive) {
+                                terminalWsRef.current = ws 
+                              }
+                            }}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
                 }
               />
             </div>
@@ -297,10 +319,32 @@ export function WorkspacePage({ session, sessions, onDisconnect, onAddConnection
               />
             }
             right={
-              <TerminalPanel
-                sessionId={activeTab?.sessionId || currentSession.id}
-                onWsReady={(ws) => { terminalWsRef.current = ws }}
-              />
+              <div className="w-full h-full relative">
+                {/* 为每个会话渲染独立的终端，通过显示/隐藏切换 */}
+                {Array.from(sessions.entries()).map(([sessionId]) => {
+                  const isActive = sessionId === (activeTab?.sessionId || currentSession.id)
+                  return (
+                    <div
+                      key={sessionId}
+                      className={`absolute inset-0 ${isActive ? '' : 'pointer-events-none'}`}
+                      style={{ 
+                        opacity: isActive ? 1 : 0,
+                        zIndex: isActive ? 1 : 0
+                      }}
+                    >
+                      <TerminalPanel
+                        sessionId={sessionId}
+                        isActive={isActive}
+                        onWsReady={(ws) => { 
+                          if (isActive) {
+                            terminalWsRef.current = ws 
+                          }
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
             }
           />
         )}

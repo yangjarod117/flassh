@@ -1,4 +1,4 @@
-export { useThemeStore, themes, getSystemThemePreference, MIN_TERMINAL_FONT_SIZE, MAX_TERMINAL_FONT_SIZE, DEFAULT_TERMINAL_FONT_SIZE } from './theme'
+export { useThemeStore, themes, getSystemThemePreference, MIN_TERMINAL_FONT_SIZE, MAX_TERMINAL_FONT_SIZE, DEFAULT_TERMINAL_FONT_SIZE, TERMINAL_FONTS, UI_FONTS } from './theme'
 export { useConnectionsStore } from './connections'
 export { useTabsStore } from './tabs'
 export { useEditorStore } from './editor'

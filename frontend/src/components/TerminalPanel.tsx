@@ -8,6 +8,7 @@ import 'xterm/css/xterm.css'
 
 interface TerminalPanelProps {
   sessionId: string
+  isActive?: boolean
   onResize?: (cols: number, rows: number) => void
   onData?: (data: string) => void
   onWsReady?: (ws: WebSocket) => void
@@ -47,14 +48,15 @@ function convertToXtermTheme(terminalTheme: TerminalTheme) {
 /**
  * 终端面板组件
  */
-export function TerminalPanel({ sessionId, onResize, onData, onWsReady }: TerminalPanelProps) {
+export function TerminalPanel({ sessionId, isActive = true, onResize, onData, onWsReady }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const [copyHint, setCopyHint] = useState<string | null>(null)
-  const { getCurrentTheme, terminalFontSize } = useThemeStore()
+  const { getCurrentTheme, terminalFontSize, getTerminalFontFamily } = useThemeStore()
   const theme = getCurrentTheme()
+  const terminalFontFamily = getTerminalFontFamily()
 
   // 右键复制/粘贴功能
   const handleContextMenu = useCallback(async (e: React.MouseEvent) => {
@@ -103,8 +105,9 @@ export function TerminalPanel({ sessionId, onResize, onData, onWsReady }: Termin
       cursorBlink: true,
       cursorStyle: 'bar',
       cursorWidth: 2,
+      cursorInactiveStyle: 'bar',
       fontSize: terminalFontSize,
-      fontFamily: "Consolas, 'JetBrains Mono', 'Fira Code', Monaco, monospace",
+      fontFamily: terminalFontFamily,
       theme: convertToXtermTheme(theme.terminal),
       allowTransparency: true,
       scrollback: 10000,
@@ -171,6 +174,17 @@ export function TerminalPanel({ sessionId, onResize, onData, onWsReady }: Termin
       fitAddonRef.current.fit()
     }
   }, [terminalFontSize])
+
+  // 更新终端字体
+  useEffect(() => {
+    if (!xtermRef.current) return
+
+    xtermRef.current.options.fontFamily = terminalFontFamily
+    // 重新适配终端大小
+    if (fitAddonRef.current) {
+      fitAddonRef.current.fit()
+    }
+  }, [terminalFontFamily])
 
   // 连接 WebSocket（带心跳和自动重连）
   useEffect(() => {
@@ -303,6 +317,21 @@ export function TerminalPanel({ sessionId, onResize, onData, onWsReady }: Termin
   const focus = useCallback(() => {
     xtermRef.current?.focus()
   }, [])
+
+  // 当终端激活时自动聚焦
+  useEffect(() => {
+    if (isActive && xtermRef.current) {
+      // 延迟聚焦，确保 DOM 更新完成
+      const timer = setTimeout(() => {
+        xtermRef.current?.focus()
+        // 重新适配大小
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit()
+        }
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [isActive])
 
   return (
     <div

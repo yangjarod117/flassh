@@ -14,6 +14,10 @@ interface WebSocketClient extends WebSocket {
 export class WebSocketHandler {
   private wss: WebSocketServer
   private pingInterval: NodeJS.Timeout | null = null
+  // 跟踪每个 session 对应的 WebSocket 连接
+  private sessionToWs: Map<string, WebSocketClient> = new Map()
+  // 跟踪已设置输出监听的 session
+  private shellOutputSetup: Set<string> = new Set()
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server, path: '/ws' })
@@ -45,8 +49,10 @@ export class WebSocketHandler {
       ws.on('close', () => {
         console.log('WebSocket client disconnected')
         if (ws.sessionId) {
-          // 可选：断开 SSH 连接
-          // sshManager.disconnect(ws.sessionId)
+          // 从映射中移除
+          if (this.sessionToWs.get(ws.sessionId) === ws) {
+            this.sessionToWs.delete(ws.sessionId)
+          }
         }
       })
 
@@ -97,20 +103,21 @@ export class WebSocketHandler {
       return
     }
 
+    // 绑定 WebSocket 到会话
+    ws.sessionId = sessionId
+    this.sessionToWs.set(sessionId, ws)
+
     // 如果还没有 shell，创建一个
     if (!session.shell) {
       try {
         await sshManager.createShell(sessionId)
-        // 设置 shell 输出处理
-        this.setupShellOutput(ws, sessionId)
+        // 设置 shell 输出处理（只设置一次）
+        this.setupShellOutput(sessionId)
       } catch (err) {
         this.sendError(ws, 'Failed to create shell', sessionId)
         return
       }
     }
-
-    // 绑定 WebSocket 到会话
-    ws.sessionId = sessionId
 
     // 发送输入到终端
     const success = sshManager.sendInput(sessionId, data)
@@ -136,18 +143,20 @@ export class WebSocketHandler {
       return // 会话不存在，静默忽略
     }
 
+    // 绑定 WebSocket 到会话
+    ws.sessionId = sessionId
+    this.sessionToWs.set(sessionId, ws)
+
     // 如果 shell 已存在，直接调整大小
     if (session.shell) {
       sshManager.resizeTerminal(sessionId, cols, rows)
-      ws.sessionId = sessionId
       return
     }
 
     // shell 不存在，尝试创建
     try {
       await sshManager.createShell(sessionId, cols, rows)
-      this.setupShellOutput(ws, sessionId)
-      ws.sessionId = sessionId
+      this.setupShellOutput(sessionId)
     } catch {
       // 创建失败，静默忽略（可能会话还在初始化）
       console.log(`Failed to create shell for session ${sessionId}, will retry later`)
@@ -155,25 +164,42 @@ export class WebSocketHandler {
   }
 
   /**
-   * 设置 Shell 输出处理
+   * 设置 Shell 输出处理（每个 session 只设置一次）
    */
-  private setupShellOutput(ws: WebSocketClient, sessionId: string): void {
+  private setupShellOutput(sessionId: string): void {
+    // 避免重复设置
+    if (this.shellOutputSetup.has(sessionId)) {
+      return
+    }
+
     const session = sshManager.getSession(sessionId)
     if (!session?.shell) return
 
+    this.shellOutputSetup.add(sessionId)
+
     session.shell.on('data', (data: Buffer) => {
-      this.sendMessage(ws, {
-        type: 'output',
-        sessionId,
-        data: data.toString('utf-8'),
-      })
+      // 动态获取当前绑定的 WebSocket
+      const ws = this.sessionToWs.get(sessionId)
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        this.sendMessage(ws, {
+          type: 'output',
+          sessionId,
+          data: data.toString('utf-8'),
+        })
+      }
     })
 
     session.shell.on('close', () => {
-      this.sendMessage(ws, {
-        type: 'disconnect',
-        sessionId,
-      })
+      const ws = this.sessionToWs.get(sessionId)
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        this.sendMessage(ws, {
+          type: 'disconnect',
+          sessionId,
+        })
+      }
+      // 清理
+      this.shellOutputSetup.delete(sessionId)
+      this.sessionToWs.delete(sessionId)
     })
   }
 

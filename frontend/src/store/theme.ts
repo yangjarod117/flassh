@@ -6,7 +6,7 @@ import type { ThemeConfig, TerminalTheme } from '../types'
 const darkTerminalTheme: TerminalTheme = {
   background: '#1a1a2e',
   foreground: '#e4e4e7',
-  cursor: '#3b82f6',
+  cursor: '#ffffff',
   selection: 'rgba(59, 130, 246, 0.3)',
   black: '#27272a',
   red: '#ef4444',
@@ -22,7 +22,7 @@ const darkTerminalTheme: TerminalTheme = {
 const lightTerminalTheme: TerminalTheme = {
   background: '#ffffff',
   foreground: '#18181b',
-  cursor: '#2563eb',
+  cursor: '#000000',
   selection: 'rgba(37, 99, 235, 0.2)',
   black: '#18181b',
   red: '#dc2626',
@@ -79,16 +79,43 @@ export const MIN_TERMINAL_FONT_SIZE = 10
 export const MAX_TERMINAL_FONT_SIZE = 24
 export const DEFAULT_TERMINAL_FONT_SIZE = 14
 
+// 可选字体列表
+export const TERMINAL_FONTS = [
+  { id: 'jetbrains', name: 'JetBrains Mono', value: "'JetBrains Mono', monospace" },
+  { id: 'firacode', name: 'Fira Code', value: "'Fira Code', monospace" },
+  { id: 'sourcecodepro', name: 'Source Code Pro', value: "'Source Code Pro', monospace" },
+  { id: 'menlo', name: 'Menlo', value: "Menlo, Monaco, monospace" },
+  { id: 'consolas', name: 'Consolas', value: "Consolas, monospace" },
+  { id: 'courier', name: 'Courier New', value: "'Courier New', monospace" },
+]
+
+export const UI_FONTS = [
+  { id: 'system', name: '系统默认', value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+  { id: 'inter', name: 'Inter', value: "'Inter', sans-serif" },
+  { id: 'noto', name: 'Noto Sans SC', value: "'Noto Sans SC', sans-serif" },
+  { id: 'pingfang', name: '苹方', value: "'PingFang SC', sans-serif" },
+  { id: 'microsoft', name: '微软雅黑', value: "'Microsoft YaHei', sans-serif" },
+]
+
+export const DEFAULT_TERMINAL_FONT = TERMINAL_FONTS[0].id
+export const DEFAULT_UI_FONT = UI_FONTS[0].id
+
 interface ThemeState {
   currentThemeId: string
   followSystemTheme: boolean
   terminalFontSize: number
+  terminalFontId: string
+  uiFontId: string
   
   // Actions
   setTheme: (themeId: string) => void
   setFollowSystemTheme: (follow: boolean) => void
   setTerminalFontSize: (size: number) => void
+  setTerminalFont: (fontId: string) => void
+  setUIFont: (fontId: string) => void
   getCurrentTheme: () => ThemeConfig
+  getTerminalFontFamily: () => string
+  getUIFontFamily: () => string
 }
 
 const STORAGE_KEY = 'webssh-theme'
@@ -112,6 +139,8 @@ export const useThemeStore = create<ThemeState>()(
       currentThemeId: 'dark',
       followSystemTheme: false,
       terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+      terminalFontId: DEFAULT_TERMINAL_FONT,
+      uiFontId: DEFAULT_UI_FONT,
       
       setTheme: (themeId: string) => {
         const themeExists = themes.some(t => t.id === themeId)
@@ -133,6 +162,20 @@ export const useThemeStore = create<ThemeState>()(
         set({ terminalFontSize: clampedSize })
       },
       
+      setTerminalFont: (fontId: string) => {
+        const fontExists = TERMINAL_FONTS.some(f => f.id === fontId)
+        if (fontExists) {
+          set({ terminalFontId: fontId })
+        }
+      },
+      
+      setUIFont: (fontId: string) => {
+        const fontExists = UI_FONTS.some(f => f.id === fontId)
+        if (fontExists) {
+          set({ uiFontId: fontId })
+        }
+      },
+      
       getCurrentTheme: () => {
         const state = get()
         let themeId = state.currentThemeId
@@ -143,6 +186,18 @@ export const useThemeStore = create<ThemeState>()(
         
         return themes.find(t => t.id === themeId) || themes[0]
       },
+      
+      getTerminalFontFamily: () => {
+        const state = get()
+        const font = TERMINAL_FONTS.find(f => f.id === state.terminalFontId)
+        return font?.value || TERMINAL_FONTS[0].value
+      },
+      
+      getUIFontFamily: () => {
+        const state = get()
+        const font = UI_FONTS.find(f => f.id === state.uiFontId)
+        return font?.value || UI_FONTS[0].value
+      },
     }),
     {
       name: STORAGE_KEY,
@@ -150,6 +205,8 @@ export const useThemeStore = create<ThemeState>()(
         currentThemeId: state.currentThemeId,
         followSystemTheme: state.followSystemTheme,
         terminalFontSize: state.terminalFontSize,
+        terminalFontId: state.terminalFontId,
+        uiFontId: state.uiFontId,
       }),
     }
   )

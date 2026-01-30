@@ -4,12 +4,18 @@ services:
     container_name: webssh
     ports:
       - "4000:4000"
-    restart: unless-stopped
+    volumes:
+      - webssh-data:/app/data  # 持久化凭据存储
     environment:
       - TZ=Asia/Shanghai
       - NODE_ENV=production
+      - CREDENTIAL_KEY=your-64-char-hex-key-here  # 使用 openssl rand -hex 32 生成
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  webssh-data:

@@ -98,6 +98,9 @@ export function SplitLayout({
       document.addEventListener('touchend', handleMouseUp)
       document.body.style.cursor = 'col-resize'
       document.body.style.userSelect = 'none'
+    } else {
+      // 拖动结束后触发 resize 事件，让终端重新适配
+      window.dispatchEvent(new Event('resize'))
     }
     
     return () => {
@@ -214,7 +217,15 @@ export function SplitLayout({
         
         {/* 折叠/展开按钮 */}
         <button
-          onClick={isCollapsed ? expand : collapse}
+          onClick={() => {
+            if (isCollapsed) {
+              expand()
+            } else {
+              collapse()
+            }
+            // 延迟触发 resize，等待动画完成
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 350)
+          }}
           className="
             absolute top-1/2 -translate-y-1/2 -left-3
             w-6 h-12 bg-surface border border-border rounded-theme-md

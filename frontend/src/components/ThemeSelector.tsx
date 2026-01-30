@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useThemeStore, themes, MIN_TERMINAL_FONT_SIZE, MAX_TERMINAL_FONT_SIZE } from '../store'
+import { useThemeStore, themes, MIN_TERMINAL_FONT_SIZE, MAX_TERMINAL_FONT_SIZE, TERMINAL_FONTS, UI_FONTS } from '../store'
 
 /**
  * 主题选择器组件
@@ -11,9 +11,13 @@ export function ThemeSelector() {
     currentThemeId, 
     followSystemTheme, 
     terminalFontSize,
+    terminalFontId,
+    uiFontId,
     setTheme, 
     setFollowSystemTheme,
-    setTerminalFontSize 
+    setTerminalFontSize,
+    setTerminalFont,
+    setUIFont,
   } = useThemeStore()
 
   const currentTheme = themes.find((t) => t.id === currentThemeId) || themes[0]
@@ -146,6 +150,44 @@ export function ThemeSelector() {
                     </svg>
                   </button>
                 </div>
+              </div>
+
+              {/* 分隔线 */}
+              <div className="border-t border-border" />
+
+              {/* 终端字体选择 */}
+              <div className="py-2 px-4">
+                <div className="text-xs text-textSecondary mb-2">终端字体</div>
+                <select
+                  value={terminalFontId}
+                  onChange={(e) => setTerminalFont(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {TERMINAL_FONTS.map((font) => (
+                    <option key={font.id} value={font.id}>
+                      {font.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 分隔线 */}
+              <div className="border-t border-border" />
+
+              {/* 界面字体选择 */}
+              <div className="py-2 px-4">
+                <div className="text-xs text-textSecondary mb-2">界面字体</div>
+                <select
+                  value={uiFontId}
+                  onChange={(e) => setUIFont(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {UI_FONTS.map((font) => (
+                    <option key={font.id} value={font.id}>
+                      {font.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </motion.div>
           </>

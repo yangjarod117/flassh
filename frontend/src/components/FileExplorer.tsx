@@ -3,15 +3,15 @@ import type { FileItem } from '../types'
 import { VirtualList } from './VirtualList'
 
 /** 文件列表项高度（像素） */
-const FILE_ITEM_HEIGHT = 40
+const FILE_ITEM_HEIGHT = 24
 
 /** 启用虚拟滚动的文件数量阈值 */
 const VIRTUAL_SCROLL_THRESHOLD = 100
 
 /** 默认列宽 */
 const DEFAULT_COLUMN_WIDTHS = {
-  size: 80,
-  time: 140,
+  size: 60,
+  time: 120,
 }
 
 /** 最小列宽 */
@@ -128,27 +128,34 @@ function FileItemRow({ file, isSelected, onSelect, onDoubleClick, onContextMenu,
   return (
     <div
       className={`
-        flex items-center gap-3 px-3 py-2 cursor-pointer
+        flex items-center px-3 cursor-pointer
         transition-colors duration-150 select-none
         ${isSelected
-          ? 'bg-primary/20 text-white'
-          : 'hover:bg-surface/50 text-secondary hover:text-white'
+          ? 'bg-primary/20 text-primary'
+          : 'hover:bg-surface/50 text-secondary hover:text-primary'
         }
       `}
+      style={{ height: `${FILE_ITEM_HEIGHT}px` }}
       onClick={onSelect}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
     >
-      <FileIcon type={file.type} name={file.name} />
-      <span className="flex-1 min-w-0 truncate text-sm">{file.name}</span>
+      <div className="flex items-center gap-2 flex-1 min-w-0 h-full">
+        <FileIcon type={file.type} name={file.name} />
+        <span className="flex-1 min-w-0 truncate text-sm">{file.name}</span>
+      </div>
+      {/* 分隔线 - 全高 */}
+      <div className="w-px h-full flex-shrink-0 bg-border" />
       <span 
-        className="text-xs text-secondary/70 text-right flex-shrink-0"
+        className="text-xs text-secondary/70 text-left flex-shrink-0 px-2 truncate"
         style={{ width: columnWidths.size }}
       >
         {file.type === 'directory' ? '文件夹' : formatFileSize(file.size)}
       </span>
+      {/* 分隔线 - 全高 */}
+      <div className="w-px h-full flex-shrink-0 hidden md:block bg-border" />
       <span 
-        className="text-xs text-secondary/70 text-right flex-shrink-0 hidden md:block"
+        className="text-xs text-secondary/70 text-left flex-shrink-0 px-2 truncate hidden md:block"
         style={{ width: columnWidths.time }}
       >
         {formatDateTime(new Date(file.modifiedTime))}
@@ -241,40 +248,34 @@ export function FileExplorer({
   
   // 列宽状态
   const [columnWidths, setColumnWidths] = useState(DEFAULT_COLUMN_WIDTHS)
-  const [resizing, setResizing] = useState<'size' | 'time' | null>(null)
+  const resizingRef = useRef<'size' | 'time' | null>(null)
   const resizeStartX = useRef(0)
   const resizeStartWidth = useRef(0)
 
   // 处理列宽拖拽开始
   const handleResizeStart = (column: 'size' | 'time', e: React.MouseEvent) => {
     e.preventDefault()
-    setResizing(column)
+    e.stopPropagation()
+    resizingRef.current = column
     resizeStartX.current = e.clientX
     resizeStartWidth.current = columnWidths[column]
-  }
-
-  // 处理列宽拖拽
-  useEffect(() => {
-    if (!resizing) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const diff = resizeStartX.current - e.clientX // 反向，因为列在右边
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return
+      const diff = resizeStartX.current - moveEvent.clientX // 反向，因为列在右边
       const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeStartWidth.current + diff)
-      setColumnWidths(prev => ({ ...prev, [resizing]: newWidth }))
+      setColumnWidths(prev => ({ ...prev, [resizingRef.current!]: newWidth }))
     }
 
     const handleMouseUp = () => {
-      setResizing(null)
+      resizingRef.current = null
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
     }
 
     document.addEventListener('mousemove', handleMouseMove)
     document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [resizing])
+  }
 
   // 加载目录内容
   const loadDirectory = useCallback(async (path: string) => {
@@ -399,27 +400,25 @@ export function FileExplorer({
       <PathBreadcrumb path={currentPath} onNavigate={onPathChange} />
 
       {/* 列表表头 */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border bg-surface/30 text-xs text-secondary/70">
-        <span className="w-5 flex-shrink-0"></span>
-        <span className="flex-1 min-w-0">名称</span>
-        {/* 大小列 - 可拖拽调整 */}
-        <div className="flex items-center flex-shrink-0" style={{ width: columnWidths.size }}>
-          <div
-            className="w-1.5 h-5 cursor-col-resize bg-border/50 hover:bg-primary rounded mr-1.5 transition-colors"
-            onMouseDown={(e) => handleResizeStart('size', e)}
-            title="拖拽调整列宽"
-          />
-          <span className="flex-1 text-right">大小</span>
+      <div className="flex items-center px-3 border-b border-border bg-surface/30 text-xs text-secondary/70" style={{ height: '28px' }}>
+        <div className="flex items-center gap-2 flex-1 min-w-0 h-full">
+          <span className="w-5 flex-shrink-0"></span>
+          <span className="flex-1 min-w-0">名称</span>
         </div>
-        {/* 修改时间列 - 可拖拽调整 */}
-        <div className="items-center flex-shrink-0 hidden md:flex" style={{ width: columnWidths.time }}>
-          <div
-            className="w-1.5 h-5 cursor-col-resize bg-border/50 hover:bg-primary rounded mr-1.5 transition-colors"
-            onMouseDown={(e) => handleResizeStart('time', e)}
-            title="拖拽调整列宽"
-          />
-          <span className="flex-1 text-right">修改时间</span>
-        </div>
+        {/* 大小列分隔线 */}
+        <div 
+          className="w-px h-full cursor-col-resize hover:bg-primary transition-colors bg-border"
+          onMouseDown={(e) => handleResizeStart('size', e)}
+          title="拖拽调整列宽"
+        />
+        <span className="text-left flex-shrink-0 px-2" style={{ width: columnWidths.size }}>大小</span>
+        {/* 修改时间列分隔线 */}
+        <div 
+          className="w-px h-full cursor-col-resize hover:bg-primary transition-colors hidden md:block bg-border"
+          onMouseDown={(e) => handleResizeStart('time', e)}
+          title="拖拽调整列宽"
+        />
+        <span className="text-left flex-shrink-0 px-2 hidden md:block" style={{ width: columnWidths.time }}>修改时间</span>
       </div>
 
       {/* 文件列表 */}
@@ -474,7 +473,7 @@ export function FileExplorer({
           />
         ) : (
           /* 小文件列表使用普通渲染 */
-          <div className="h-full overflow-y-auto divide-y divide-border/30">
+          <div className="h-full overflow-y-auto">
             {files.map((file) => (
               <FileItemRow
                 key={file.path}

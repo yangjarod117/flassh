@@ -582,6 +582,20 @@ body {
 .terminal-dot-yellow { @apply bg-yellow-500; }
 .terminal-dot-green { @apply bg-green-500; }
 
+/* xterm 光标闪烁修复 */
+.xterm .xterm-cursor-layer .xterm-cursor {
+  animation: cursor-blink 1s step-end infinite !important;
+}
+
+.xterm .xterm-cursor-layer .xterm-cursor.xterm-cursor-blink {
+  animation: cursor-blink 1s step-end infinite !important;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* ============================================
    File Explorer Styles
    ============================================ */

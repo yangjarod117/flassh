@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, lazy, Suspense } from 'react'
 import { ThemeProvider, ErrorBoundary, setupGlobalErrorHandlers } from './components'
-import { useTabsStore } from './store'
+import { useTabsStore, useThemeStore } from './store'
 import { createLogEntry } from './utils/logs'
 import type { ConnectionConfig, SessionState } from './types'
 
@@ -36,6 +36,8 @@ function AppContent() {
   const [sessions, setSessions] = useState<Map<string, SessionState>>(new Map())
   const [showConnectionPage, setShowConnectionPage] = useState(true)
   const { addTab, removeTab, tabs, activeTabId } = useTabsStore()
+  const { getUIFontFamily } = useThemeStore()
+  const uiFontFamily = getUIFontFamily()
 
   // 获取当前活动的会话
   const activeSession = activeTabId 
@@ -176,7 +178,7 @@ function AppContent() {
   }, [tabs.length])
 
   return (
-    <div className="min-h-screen bg-background text-text">
+    <div className="min-h-screen bg-background text-text" style={{ fontFamily: uiFontFamily }}>
       {/* 跳过导航链接 (无障碍) */}
       <a href="#main-content" className="skip-link">
         跳过导航
