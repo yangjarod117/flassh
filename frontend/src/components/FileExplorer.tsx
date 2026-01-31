@@ -10,12 +10,15 @@ const VIRTUAL_SCROLL_THRESHOLD = 100
 
 /** 默认列宽 */
 const DEFAULT_COLUMN_WIDTHS = {
-  size: 60,
-  time: 120,
+  size: 80,
+  time: 140,
 }
 
 /** 最小列宽 */
-const MIN_COLUMN_WIDTH = 60
+const MIN_COLUMN_WIDTH = 50
+
+/** 最大列宽 */
+const MAX_COLUMN_WIDTH = 200
 
 /**
  * 文件图标组件
@@ -252,7 +255,7 @@ export function FileExplorer({
   const resizeStartX = useRef(0)
   const resizeStartWidth = useRef(0)
 
-  // 处理列宽拖拽开始
+  // 处理列宽拖拽开始 - 独立于 SplitLayout 的拖拽
   const handleResizeStart = (column: 'size' | 'time', e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -260,21 +263,32 @@ export function FileExplorer({
     resizeStartX.current = e.clientX
     resizeStartWidth.current = columnWidths[column]
     
+    // 添加拖拽中的样式
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    
     const handleMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault()
+      moveEvent.stopPropagation()
       if (!resizingRef.current) return
       const diff = resizeStartX.current - moveEvent.clientX // 反向，因为列在右边
-      const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeStartWidth.current + diff)
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, resizeStartWidth.current + diff))
       setColumnWidths(prev => ({ ...prev, [resizingRef.current!]: newWidth }))
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      upEvent.preventDefault()
+      upEvent.stopPropagation()
       resizingRef.current = null
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleMouseMove, true)
+      document.removeEventListener('mouseup', handleMouseUp, true)
     }
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
+    // 使用捕获阶段，确保事件不会传播到 SplitLayout
+    document.addEventListener('mousemove', handleMouseMove, true)
+    document.addEventListener('mouseup', handleMouseUp, true)
   }
 
   // 加载目录内容
@@ -405,19 +419,25 @@ export function FileExplorer({
           <span className="w-5 flex-shrink-0"></span>
           <span className="flex-1 min-w-0">名称</span>
         </div>
-        {/* 大小列分隔线 */}
+        {/* 大小列分隔线 - 增加拖拽区域 */}
         <div 
-          className="w-px h-full cursor-col-resize hover:bg-primary transition-colors bg-border"
+          className="relative h-full flex-shrink-0 cursor-col-resize group"
+          style={{ width: '9px', marginLeft: '-4px', marginRight: '-4px' }}
           onMouseDown={(e) => handleResizeStart('size', e)}
           title="拖拽调整列宽"
-        />
+        >
+          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border group-hover:bg-primary transition-colors" style={{ transform: 'translateX(-50%)' }} />
+        </div>
         <span className="text-left flex-shrink-0 px-2" style={{ width: columnWidths.size }}>大小</span>
-        {/* 修改时间列分隔线 */}
+        {/* 修改时间列分隔线 - 增加拖拽区域 */}
         <div 
-          className="w-px h-full cursor-col-resize hover:bg-primary transition-colors hidden md:block bg-border"
+          className="relative h-full flex-shrink-0 cursor-col-resize group hidden md:block"
+          style={{ width: '9px', marginLeft: '-4px', marginRight: '-4px' }}
           onMouseDown={(e) => handleResizeStart('time', e)}
           title="拖拽调整列宽"
-        />
+        >
+          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border group-hover:bg-primary transition-colors" style={{ transform: 'translateX(-50%)' }} />
+        </div>
         <span className="text-left flex-shrink-0 px-2 hidden md:block" style={{ width: columnWidths.time }}>修改时间</span>
       </div>
 

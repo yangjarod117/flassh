@@ -173,27 +173,34 @@ function QuickConnectDialog({
   const [error, setError] = useState('')
   const [saveCredentials, setSaveCredentials] = useState(false)
   const { getStoredCredentials, updateConnection } = useConnectionsStore()
-  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false)
+  const [isLoadingCredentials, setIsLoadingCredentials] = useState(true)
+  const [hasTriedAutoConnect, setHasTriedAutoConnect] = useState(false)
 
-  // 尝试加载已保存的凭据
+  // 尝试加载已保存的凭据并自动连接
   useEffect(() => {
-    if (connection.hasStoredCredentials) {
-      setIsLoadingCredentials(true)
-      getStoredCredentials(connection.id).then((creds) => {
-        if (creds) {
-          // 直接连接
-          onConnect(creds as ConnectionConfig).catch((err) => {
-            setError(err instanceof Error ? err.message : '连接失败')
-            setIsLoadingCredentials(false)
-          })
-        } else {
-          setIsLoadingCredentials(false)
+    const tryAutoConnect = async () => {
+      if (hasTriedAutoConnect) return
+      setHasTriedAutoConnect(true)
+      
+      if (connection.hasStoredCredentials) {
+        setIsLoadingCredentials(true)
+        try {
+          const creds = await getStoredCredentials(connection.id)
+          if (creds && (creds.password || creds.privateKey)) {
+            // 有完整凭据，直接连接
+            await onConnect(creds as ConnectionConfig)
+            return // 连接成功，不需要显示表单
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '连接失败')
         }
-      }).catch(() => {
-        setIsLoadingCredentials(false)
-      })
+      }
+      // 没有保存凭据或凭据不完整，显示表单
+      setIsLoadingCredentials(false)
     }
-  }, [connection.id, connection.hasStoredCredentials, getStoredCredentials, onConnect])
+    
+    tryAutoConnect()
+  }, [connection.id, connection.hasStoredCredentials, getStoredCredentials, onConnect, hasTriedAutoConnect])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -265,6 +272,12 @@ function QuickConnectDialog({
         >
           <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
           <p className="text-text">正在连接 {connection.name}...</p>
+          <button
+            onClick={onCancel}
+            className="mt-4 px-4 py-2 text-sm text-text-secondary hover:text-text transition-colors"
+          >
+            取消
+          </button>
         </motion.div>
       </div>
     )
