@@ -16,14 +16,29 @@ interface StoredCredential {
   lastUsedAt: string
 }
 
+// 保存的连接信息（不含敏感凭据）
+export interface SavedConnectionInfo {
+  id: string
+  name: string
+  host: string
+  port: number
+  username: string
+  authType: 'password' | 'key'
+  hasStoredCredentials: boolean
+  createdAt: string
+  lastUsedAt: string
+}
+
 /**
  * 凭据存储管理器
  * 使用 AES-256-GCM 加密存储敏感信息
  */
 class CredentialStore {
   private credentials: Map<string, StoredCredential> = new Map()
+  private connections: Map<string, SavedConnectionInfo> = new Map()
   private encryptionKey: Buffer
   private storePath: string
+  private connectionsPath: string
 
   constructor() {
     // 从环境变量获取密钥，或生成一个
@@ -37,9 +52,11 @@ class CredentialStore {
 
     // 存储路径
     this.storePath = process.env.CREDENTIAL_STORE_PATH || path.join(process.cwd(), 'data', 'credentials.json')
+    this.connectionsPath = process.env.CONNECTIONS_STORE_PATH || path.join(process.cwd(), 'data', 'connections.json')
     
-    // 加载已存储的凭据
+    // 加载已存储的凭据和连接
     this.load()
+    this.loadConnections()
   }
 
   /**
@@ -245,6 +262,87 @@ class CredentialStore {
       }
     } catch (err) {
       console.error('Failed to load credentials:', err)
+    }
+  }
+
+  // ========== 连接列表管理 ==========
+
+  /**
+   * 保存连接信息
+   */
+  saveConnection(connection: SavedConnectionInfo): void {
+    this.connections.set(connection.id, connection)
+    this.persistConnections()
+  }
+
+  /**
+   * 获取所有连接
+   */
+  getConnections(): SavedConnectionInfo[] {
+    return Array.from(this.connections.values())
+  }
+
+  /**
+   * 获取单个连接
+   */
+  getConnection(id: string): SavedConnectionInfo | null {
+    return this.connections.get(id) || null
+  }
+
+  /**
+   * 更新连接信息
+   */
+  updateConnection(id: string, updates: Partial<Omit<SavedConnectionInfo, 'id' | 'createdAt'>>): boolean {
+    const connection = this.connections.get(id)
+    if (!connection) return false
+    
+    Object.assign(connection, updates)
+    this.persistConnections()
+    return true
+  }
+
+  /**
+   * 删除连接
+   */
+  deleteConnection(id: string): boolean {
+    const result = this.connections.delete(id)
+    if (result) {
+      // 同时删除凭据
+      this.delete(id)
+      this.persistConnections()
+    }
+    return result
+  }
+
+  /**
+   * 持久化连接列表
+   */
+  private persistConnections(): void {
+    try {
+      const dir = path.dirname(this.connectionsPath)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      
+      const data = JSON.stringify(Array.from(this.connections.entries()), null, 2)
+      fs.writeFileSync(this.connectionsPath, data, 'utf8')
+    } catch (err) {
+      console.error('Failed to persist connections:', err)
+    }
+  }
+
+  /**
+   * 加载连接列表
+   */
+  private loadConnections(): void {
+    try {
+      if (fs.existsSync(this.connectionsPath)) {
+        const data = fs.readFileSync(this.connectionsPath, 'utf8')
+        const entries = JSON.parse(data) as Array<[string, SavedConnectionInfo]>
+        this.connections = new Map(entries)
+      }
+    } catch (err) {
+      console.error('Failed to load connections:', err)
     }
   }
 }

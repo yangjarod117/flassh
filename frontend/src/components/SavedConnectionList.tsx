@@ -418,11 +418,16 @@ function QuickConnectDialog({
  * 已保存连接列表组件
  */
 export function SavedConnectionList({ onSelect, onQuickConnect }: SavedConnectionListProps) {
-  const { savedConnections, deleteConnection, updateConnection } = useConnectionsStore()
+  const { savedConnections, deleteConnection, updateConnection, loadConnections, isLoading: isLoadingConnections } = useConnectionsStore()
   const [editingConnection, setEditingConnection] = useState<SavedConnection | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [quickConnectConnection, setQuickConnectConnection] = useState<SavedConnection | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
+
+  // 组件挂载时加载连接列表
+  useEffect(() => {
+    loadConnections()
+  }, [loadConnections])
 
   const handleSaveEdit = (updates: Partial<Omit<SavedConnection, 'id' | 'createdAt'>>) => {
     if (editingConnection) {
@@ -445,6 +450,15 @@ export function SavedConnectionList({ onSelect, onQuickConnect }: SavedConnectio
     } finally {
       setIsConnecting(false)
     }
+  }
+
+  if (isLoadingConnections) {
+    return (
+      <div className="text-center py-8 text-secondary">
+        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm">加载连接列表...</p>
+      </div>
+    )
   }
 
   if (savedConnections.length === 0) {
