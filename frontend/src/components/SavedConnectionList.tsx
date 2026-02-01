@@ -186,13 +186,27 @@ function QuickConnectDialog({
         setIsLoadingCredentials(true)
         try {
           const creds = await getStoredCredentials(connection.id)
+          console.log('Loaded credentials:', creds ? { ...creds, password: creds.password ? '***' : undefined, privateKey: creds.privateKey ? '***' : undefined } : null)
+          
           if (creds && (creds.password || creds.privateKey)) {
             // 有完整凭据，直接连接
-            await onConnect(creds as ConnectionConfig)
-            return // 连接成功，不需要显示表单
+            try {
+              await onConnect(creds as ConnectionConfig)
+              return // 连接成功，不需要显示表单
+            } catch (connectErr) {
+              // 连接失败，显示错误并让用户重新输入
+              setError(connectErr instanceof Error ? connectErr.message : '连接失败，请重新输入凭据')
+              setIsLoadingCredentials(false)
+              return
+            }
+          } else {
+            // 凭据不完整或解密失败
+            console.log('Credentials incomplete or decryption failed')
+            setError('已保存的凭据无效，请重新输入')
           }
         } catch (err) {
-          setError(err instanceof Error ? err.message : '连接失败')
+          console.error('Failed to load credentials:', err)
+          setError('加载凭据失败，请重新输入')
         }
       }
       // 没有保存凭据或凭据不完整，显示表单

@@ -41,13 +41,33 @@ class CredentialStore {
   private connectionsPath: string
 
   constructor() {
-    // 从环境变量获取密钥，或生成一个
+    // 从环境变量获取密钥，或从文件加载，或生成一个
     const keyEnv = process.env.CREDENTIAL_KEY
     if (keyEnv) {
       this.encryptionKey = Buffer.from(keyEnv, 'hex')
+      console.log('Using encryption key from environment variable')
     } else {
-      // 生成随机密钥（生产环境应该使用固定密钥）
-      this.encryptionKey = crypto.randomBytes(32)
+      // 尝试从文件加载密钥
+      const keyFilePath = process.env.CREDENTIAL_KEY_PATH || path.join(process.cwd(), 'data', '.encryption_key')
+      try {
+        if (fs.existsSync(keyFilePath)) {
+          const keyHex = fs.readFileSync(keyFilePath, 'utf8').trim()
+          this.encryptionKey = Buffer.from(keyHex, 'hex')
+          console.log('Loaded encryption key from file')
+        } else {
+          // 生成新密钥并保存到文件
+          this.encryptionKey = crypto.randomBytes(32)
+          const dir = path.dirname(keyFilePath)
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true })
+          }
+          fs.writeFileSync(keyFilePath, this.encryptionKey.toString('hex'), { mode: 0o600 })
+          console.log('Generated and saved new encryption key')
+        }
+      } catch (err) {
+        console.error('Failed to load/save encryption key, using random key:', err)
+        this.encryptionKey = crypto.randomBytes(32)
+      }
     }
 
     // 存储路径
@@ -96,6 +116,7 @@ class CredentialStore {
 
   /**
    * 保存凭据
+   * 每个字段单独加密，IV 和 tag 都保存在加密字符串中
    */
   save(
     id: string,
@@ -109,35 +130,32 @@ class CredentialStore {
       passphrase?: string
     }
   ): void {
-    const iv = crypto.randomBytes(16).toString('hex')
-    
     const credential: StoredCredential = {
       id,
       host: config.host,
       port: config.port,
       username: config.username,
       authType: config.authType,
-      iv,
+      iv: '', // 不再使用共享 IV
       createdAt: new Date().toISOString(),
       lastUsedAt: new Date().toISOString(),
     }
 
-    // 加密敏感数据
+    // 加密敏感数据 - 每个字段包含自己的 IV 和 tag
+    // 格式: iv:encrypted:tag
     if (config.password) {
-      const { encrypted, iv: pwIv, tag } = this.encrypt(config.password)
-      credential.encryptedPassword = `${encrypted}:${tag}`
-      credential.iv = pwIv
+      const { encrypted, iv, tag } = this.encrypt(config.password)
+      credential.encryptedPassword = `${iv}:${encrypted}:${tag}`
     }
     
     if (config.privateKey) {
-      const { encrypted, iv: keyIv, tag } = this.encrypt(config.privateKey)
-      credential.encryptedPrivateKey = `${encrypted}:${tag}`
-      credential.iv = keyIv
+      const { encrypted, iv, tag } = this.encrypt(config.privateKey)
+      credential.encryptedPrivateKey = `${iv}:${encrypted}:${tag}`
     }
     
     if (config.passphrase) {
-      const { encrypted, tag } = this.encrypt(config.passphrase)
-      credential.encryptedPassphrase = `${encrypted}:${tag}`
+      const { encrypted, iv, tag } = this.encrypt(config.passphrase)
+      credential.encryptedPassphrase = `${iv}:${encrypted}:${tag}`
     }
 
     this.credentials.set(id, credential)
@@ -179,20 +197,42 @@ class CredentialStore {
     }
 
     // 解密敏感数据
+    // 新格式: iv:encrypted:tag
+    // 旧格式: encrypted:tag (使用 credential.iv)
     try {
       if (credential.encryptedPassword) {
-        const [encrypted, tag] = credential.encryptedPassword.split(':')
-        result.password = this.decrypt(encrypted, credential.iv, tag)
+        const parts = credential.encryptedPassword.split(':')
+        if (parts.length === 3) {
+          // 新格式
+          const [iv, encrypted, tag] = parts
+          result.password = this.decrypt(encrypted, iv, tag)
+        } else {
+          // 旧格式兼容
+          const [encrypted, tag] = parts
+          result.password = this.decrypt(encrypted, credential.iv, tag)
+        }
       }
       
       if (credential.encryptedPrivateKey) {
-        const [encrypted, tag] = credential.encryptedPrivateKey.split(':')
-        result.privateKey = this.decrypt(encrypted, credential.iv, tag)
+        const parts = credential.encryptedPrivateKey.split(':')
+        if (parts.length === 3) {
+          const [iv, encrypted, tag] = parts
+          result.privateKey = this.decrypt(encrypted, iv, tag)
+        } else {
+          const [encrypted, tag] = parts
+          result.privateKey = this.decrypt(encrypted, credential.iv, tag)
+        }
       }
       
       if (credential.encryptedPassphrase) {
-        const [encrypted, tag] = credential.encryptedPassphrase.split(':')
-        result.passphrase = this.decrypt(encrypted, credential.iv, tag)
+        const parts = credential.encryptedPassphrase.split(':')
+        if (parts.length === 3) {
+          const [iv, encrypted, tag] = parts
+          result.passphrase = this.decrypt(encrypted, iv, tag)
+        } else {
+          const [encrypted, tag] = parts
+          result.passphrase = this.decrypt(encrypted, credential.iv, tag)
+        }
       }
     } catch (err) {
       console.error('Failed to decrypt credential:', err)
