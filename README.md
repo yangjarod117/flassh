@@ -2,6 +2,12 @@
 
 基于 Web 的 SSH 终端客户端，支持文件管理、系统监控和多会话。
 
+## 截图预览
+
+![登录页面](screenshot-login.jpg)
+
+![工作区](screenshot-workspace.jpg)
+
 ## 功能特性
 
 - 🖥️ **Web 终端** - 基于 xterm.js 的完整终端体验
