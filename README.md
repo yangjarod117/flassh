@@ -49,7 +49,8 @@ services:
       - flassh-data:/app/data  # 持久化凭据存储
     environment:
       - TZ=Asia/Shanghai
-      - CREDENTIAL_KEY=your-32-byte-hex-key  # 可选：自定义加密密钥
+      - CREDENTIAL_KEY=your-64-char-hex-key  # 可选：自定义加密密钥
+      # - ACCESS_PASSWORD=your-secret-password  # 可选：设置访问密码
     restart: unless-stopped
 
 volumes:
