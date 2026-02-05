@@ -15,7 +15,7 @@ const localStorageMock = (() => {
 
 Object.defineProperty(global, 'localStorage', { value: localStorageMock })
 
-const STORAGE_KEY = 'webssh-theme'
+const STORAGE_KEY = 'flassh-theme'
 
 // 纯函数版本用于测试
 function saveThemeToStorage(themeId: string): void {

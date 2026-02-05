@@ -15,7 +15,7 @@ interface LayoutState extends SplitLayoutState {
   resetRatio: () => void
 }
 
-const STORAGE_KEY = 'webssh-layout'
+const STORAGE_KEY = 'flassh-layout'
 
 /**
  * 布局状态管理

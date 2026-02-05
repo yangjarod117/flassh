@@ -12,7 +12,7 @@ export interface FavoriteItem {
 }
 
 // 收藏存储 key - 使用 host:port 作为标识，这样刷新后不会丢失
-const getFavoritesKey = (sessionId: string) => `webssh-favorites-${sessionId}`
+const getFavoritesKey = (sessionId: string) => `flassh-favorites-${sessionId}`
 
 // 加载收藏
 export const loadFavorites = (sessionId: string): { directories: FavoriteItem[]; files: FavoriteItem[] } => {

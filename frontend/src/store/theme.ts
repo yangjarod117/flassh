@@ -118,7 +118,7 @@ interface ThemeState {
   getUIFontFamily: () => string
 }
 
-const STORAGE_KEY = 'webssh-theme'
+const STORAGE_KEY = 'flassh-theme'
 
 /**
  * 获取系统主题偏好
