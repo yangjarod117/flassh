@@ -89,11 +89,11 @@ export function SidePanel({ sessionId }: { sessionId: string }) {
 
   return (
     <>
-      <button onClick={() => setIsOpen(!isOpen)} className={`fixed top-1/2 -translate-y-1/2 p-2 rounded-l-xl shadow-lg transition-all duration-300 backdrop-blur-sm ${isOpen ? 'right-80 text-white bg-primary' : 'right-0 border border-border hover:border-primary/50 text-text-secondary hover:text-primary bg-surface/80'}`} style={{ zIndex: 70, maxWidth: '100vw' }} title={isOpen ? '收起面板' : '展开面板'}>
-        <svg className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+      <button onClick={() => setIsOpen(!isOpen)} className={`fixed top-1/2 -translate-y-1/2 p-1.5 md:p-2 rounded-l-lg md:rounded-l-xl shadow-lg transition-all duration-300 backdrop-blur-sm ${isOpen ? 'right-72 md:right-80 text-white bg-primary' : 'right-0 border border-border hover:border-primary/50 text-text-secondary hover:text-primary bg-surface/80'}`} style={{ zIndex: 70, maxWidth: '100vw' }} title={isOpen ? '收起面板' : '展开面板'}>
+        <svg className={`w-4 h-4 md:w-5 md:h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
       </button>
 
-      <div className={`fixed top-0 right-0 h-full w-80 border-l border-border transform transition-all duration-300 ease-out bg-surface ${isOpen ? 'translate-x-0' : 'translate-x-full'}`} style={{ zIndex: 70, boxShadow: isOpen ? '-10px 0 40px rgba(0,0,0,0.3)' : 'none' }}>
+      <div className={`fixed top-0 right-0 h-full w-72 md:w-80 border-l border-border transform transition-all duration-300 ease-out bg-surface ${isOpen ? 'translate-x-0' : 'translate-x-full'}`} style={{ zIndex: 70, boxShadow: isOpen ? '-10px 0 40px rgba(0,0,0,0.3)' : 'none' }}>
         <div className="flex border-b border-border bg-surface/50">
           {(['monitor', 'history'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={`flex-1 m-2 px-4 py-2 text-sm font-medium transition-all duration-200 relative rounded-xl ${tab === t ? 'text-primary bg-primary/15' : 'text-text-secondary hover:text-text hover:bg-surface-hover'}`}

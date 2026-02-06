@@ -188,7 +188,7 @@ export function ConnectionPage({ onConnect, onBack }: ConnectionPageProps) {
       </header>
 
       {/* 主内容区 */}
-      <main className="flex-1 flex items-center justify-center p-4 relative z-10 overflow-hidden">
+      <main className="flex-1 flex items-center justify-center p-4 md:p-4 p-2 relative z-10 overflow-auto">
         <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* 连接表单 */}
           <motion.div
@@ -231,7 +231,7 @@ export function ConnectionPage({ onConnect, onBack }: ConnectionPageProps) {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
-            className="rounded-xl p-4 backdrop-blur-md"
+            className="rounded-xl p-4 backdrop-blur-md max-h-[40vh] lg:max-h-none overflow-auto"
             style={{
               background: isLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(17, 24, 39, 0.5)',
               border: `1px solid ${isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 212, 255, 0.15)'}`,

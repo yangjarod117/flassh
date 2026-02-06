@@ -85,9 +85,9 @@ function TabItem({
   return (
     <div
       className={`
-        group flex items-center gap-2 px-3 py-2 min-w-[120px] max-w-[200px]
+        group flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 min-w-[80px] md:min-w-[120px] max-w-[150px] md:max-w-[200px]
         cursor-pointer select-none transition-all duration-200 ease-out
-        relative rounded-xl
+        relative rounded-lg md:rounded-xl
         ${isActive
           ? 'bg-primary/20 text-text scale-105'
           : 'bg-transparent text-text-muted opacity-40 hover:opacity-80 hover:text-text hover:bg-surface/50'
@@ -106,7 +106,7 @@ function TabItem({
       {/* 连接状态指示器 */}
       <span
         className={`
-          w-2 h-2 rounded-full flex-shrink-0 transition-shadow duration-300
+          w-1.5 h-1.5 md:w-2 md:h-2 rounded-full flex-shrink-0 transition-shadow duration-300
           ${tab.isConnected ? 'bg-success' : 'bg-secondary'}
         `}
         style={tab.isConnected ? { boxShadow: '0 0 8px rgba(0, 255, 136, 0.6)' } : undefined}
@@ -123,19 +123,19 @@ function TabItem({
           onKeyDown={handleKeyDown}
           className="
             flex-1 min-w-0 bg-transparent border-b border-primary
-            outline-none text-sm text-white
+            outline-none text-xs md:text-sm text-white
           "
           style={{ boxShadow: '0 1px 0 var(--color-primary)' }}
         />
       ) : (
-        <span className={`flex-1 min-w-0 truncate ${isActive ? 'text-lg font-bold' : 'text-sm'}`}>{tab.name}</span>
+        <span className={`flex-1 min-w-0 truncate ${isActive ? 'text-sm md:text-lg font-bold' : 'text-xs md:text-sm'}`}>{tab.name}</span>
       )}
 
       {/* 关闭按钮 */}
       <button
         onClick={handleCloseClick}
         className={`
-          flex-shrink-0 w-5 h-5 rounded flex items-center justify-center
+          flex-shrink-0 w-4 h-4 md:w-5 md:h-5 rounded flex items-center justify-center
           transition-all duration-150
           ${isActive
             ? 'hover:bg-error/20 text-secondary hover:text-error hover:shadow-[0_0_8px_rgba(255,71,87,0.4)]'
@@ -144,7 +144,7 @@ function TabItem({
         `}
         title="关闭标签页"
       >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-2.5 h-2.5 md:w-3 md:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
@@ -238,7 +238,7 @@ export function TabBar({ onAddConnection }: TabBarProps = {}) {
   return (
     <div
       ref={containerRef}
-      className="flex items-center h-10 mx-2 mt-2 rounded-xl overflow-hidden bg-surface border border-border"
+      className="flex items-center h-8 md:h-10 mx-1 md:mx-2 mt-1 md:mt-2 rounded-lg md:rounded-xl overflow-hidden bg-surface border border-border"
     >
       {/* 左滚动按钮 */}
       {isOverflowing && (
