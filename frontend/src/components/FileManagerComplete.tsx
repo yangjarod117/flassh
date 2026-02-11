@@ -5,7 +5,7 @@ import { ConfirmDialog, InputDialog } from './Dialog'
 import { FileConflictDialog } from './FileConflictDialog'
 import { calculateTransferProgress, detectFileConflict, downloadFile } from './FileTransfer'
 import { createFile, createDirectory, renameFile, deleteFile, deleteDirectory, copyPathToClipboard, validateFileName, getParentPath, joinPath } from '../utils/file-operations'
-import type { FileItem, ContextMenuPosition, TransferProgress } from '../types'
+import type { FileItem, ContextMenuPosition, TransferProgress, ContextMenuItem } from '../types'
 
 export interface FileManagerCompleteProps {
   sessionId: string
@@ -120,7 +120,11 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
 
   const handleOpen = () => {
     if (!selectedFile) return
-    selectedFile.type === 'directory' ? setCurrentPath(selectedFile.path) : onFileOpen?.(selectedFile)
+    if (selectedFile.type === 'directory') {
+      setCurrentPath(selectedFile.path)
+    } else {
+      onFileOpen?.(selectedFile)
+    }
     closeContextMenu()
   }
 
@@ -171,14 +175,35 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
     onFavorite: handleFavorite,
   }) : []
 
+  // 空白处右键菜单
+  const handleBlankContextMenu = (e: React.MouseEvent) => {
+    // 只在空白处触发（不是文件项）
+    if ((e.target as HTMLElement).closest('[data-file-item]')) return
+    e.preventDefault()
+    e.stopPropagation()
+    setSelectedFile(null)
+    setContextMenu({
+      file: { name: '', path: currentPath, type: 'directory', size: 0, modifiedTime: new Date(), permissions: '' },
+      position: { x: e.clientX, y: e.clientY }
+    })
+  }
+
+  // 空白处菜单项
+  const blankMenuItems: ContextMenuItem[] = !contextMenu?.file.name ? [
+    { id: 'newFolder', label: '新建文件夹', icon: 'newFolder', onClick: () => { setDialog('newFolder', true); closeContextMenu() } },
+    { id: 'newFile', label: '新建文件', icon: 'newFile', onClick: () => { setDialog('newFile', true); closeContextMenu() } },
+    { id: 'upload', label: '上传文件', icon: 'upload', onClick: () => { fileInputRef.current?.click(); closeContextMenu() } },
+    { id: 'refresh', label: '刷新', icon: 'refresh', onClick: () => { refresh(); closeContextMenu() } },
+  ] : menuItems
+
   return (
-    <div className="relative h-full" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div className="relative h-full" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onContextMenu={handleBlankContextMenu}>
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={e => handleFileSelect(e.target.files)} />
       
       <FileExplorer sessionId={sessionId} currentPath={currentPath} onPathChange={setCurrentPath} onFileSelect={setSelectedFile}
         onFileDoubleClick={file => { if (file.type !== 'directory') onFileEdit?.(file) }}
         onContextMenu={(file, pos) => { setSelectedFile(file); setContextMenu({ file, position: pos }) }}
-        favoriteKey={favoriteKey} favoriteStoreKey={favoriteStoreKey} />
+        favoriteKey={favoriteKey} favoriteStoreKey={favoriteStoreKey} refreshKey={refreshKey} />
 
       {isDragging && (
         <div className="absolute inset-0 z-40 bg-primary/20 border-2 border-dashed border-primary flex items-center justify-center">
@@ -189,7 +214,7 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
         </div>
       )}
 
-      {contextMenu && <ContextMenu items={menuItems} position={contextMenu.position} onClose={closeContextMenu} />}
+      {contextMenu && <ContextMenu items={blankMenuItems} position={contextMenu.position} onClose={closeContextMenu} />}
 
       <InputDialog isOpen={dialogs.newFile} onClose={() => setDialog('newFile', false)} onConfirm={handleNewFile} title="新建文件" placeholder="请输入文件名" confirmText="创建" isLoading={isLoading} validator={validateFileName} />
       <InputDialog isOpen={dialogs.newFolder} onClose={() => setDialog('newFolder', false)} onConfirm={handleNewFolder} title="新建文件夹" placeholder="请输入文件夹名" confirmText="创建" isLoading={isLoading} validator={validateFileName} />

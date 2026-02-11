@@ -148,7 +148,7 @@ function QuickConnectDialog({
       try {
         await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: connection.id, ...config }) })
         updateConnection(connection.id, { hasStoredCredentials: true })
-      } catch {}
+      } catch { /* ignore save errors */ }
     }
 
     try { await onConnect(config) } catch (err) { setError(err instanceof Error ? err.message : '连接失败') }

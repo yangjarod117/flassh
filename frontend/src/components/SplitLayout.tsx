@@ -276,8 +276,7 @@ export function SplitLayout({
  * Property 9: 响应式布局适配正确性
  */
 export function calculateResponsiveLayout(
-  screenWidth: number,
-  _screenHeight: number
+  screenWidth: number
 ): ResponsiveLayoutConfig {
   // 确保返回有效的布局配置
   const validWidth = Math.max(1, screenWidth)

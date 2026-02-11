@@ -6,7 +6,7 @@ import { createLogEntry, addLog as addLogToList, clearLogs as clearLogsList } fr
 import type { FileItem, LogEntry, SessionState } from '../types'
 
 // 当前版本号
-const CURRENT_VERSION = '1.1.6'
+const CURRENT_VERSION = '1.1.7'
 
 // 版本检测组件
 const VersionBadge = memo(() => {
@@ -95,7 +95,7 @@ interface WorkspacePageProps {
   onSessionReconnect?: (oldSessionId: string, newSessionId: string) => void
 }
 
-export function WorkspacePage({ session, sessions, onDisconnect, onAddConnection, onSessionReconnect: _onSessionReconnect }: WorkspacePageProps) {
+export function WorkspacePage({ session, sessions, onDisconnect, onAddConnection }: WorkspacePageProps) {
   const [showLogPanel, setShowLogPanel] = useState(false)
   const [logsMap, setLogsMap] = useState<Map<string, LogEntry[]>>(new Map())
   const [largeFileWarning, setLargeFileWarning] = useState<{ file: FileItem; sessionId: string } | null>(null)
@@ -131,7 +131,11 @@ export function WorkspacePage({ session, sessions, onDisconnect, onAddConnection
   }, [openFile, addLog])
 
   const openFileHandler = useCallback((file: FileItem, sessionId: string) => {
-    isLargeFile(file.size) ? setLargeFileWarning({ file, sessionId }) : loadFile(file, sessionId)
+    if (isLargeFile(file.size)) {
+      setLargeFileWarning({ file, sessionId })
+    } else {
+      loadFile(file, sessionId)
+    }
   }, [loadFile])
 
   const saveFile = useCallback(async (path: string, content: string) => {
@@ -180,7 +184,7 @@ export function WorkspacePage({ session, sessions, onDisconnect, onAddConnection
               left={<div className="w-full h-full relative">{sessionEntries.map(([sid, sess]) => (
                 <div key={`fm-${sid}`} className="absolute inset-0 bg-surface" style={{ display: sid === activeSessionId ? 'block' : 'none' }}>
                   <FileManagerComplete sessionId={sid} serverKey={`${sess.config.host}:${sess.config.port}`} onFileEdit={f => openFileHandler(f, sid)} onFileOpen={f => openFileHandler(f, sid)}
-                    onOpenTerminalInDir={path => { const ws = terminalWsMapRef.current.get(sid); ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ type: 'input', sessionId: sid, data: `cd "${path}"\n` })) }} />
+                    onOpenTerminalInDir={path => { const ws = terminalWsMapRef.current.get(sid); if (ws?.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: 'input', sessionId: sid, data: `cd "${path}"\n` })) } }} />
                 </div>
               ))}</div>}
               right={<div className="w-full h-full relative">{sessionEntries.map(([sid]) => (

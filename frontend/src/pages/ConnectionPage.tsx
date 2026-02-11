@@ -123,16 +123,12 @@ export function ConnectionPage({ onConnect, onBack }: ConnectionPageProps) {
 
   const handleQuickConnect = useCallback(async (config: ConnectionConfig) => {
     setError(null)
-    try {
-      const connection = useConnectionsStore.getState().savedConnections.find(
-        c => c.host === config.host && c.username === config.username && c.port === config.port
-      )
-      await onConnect(config, connection?.name)
-      if (connection) {
-        updateLastUsed(connection.id)
-      }
-    } catch (err) {
-      throw err
+    const connection = useConnectionsStore.getState().savedConnections.find(
+      c => c.host === config.host && c.username === config.username && c.port === config.port
+    )
+    await onConnect(config, connection?.name)
+    if (connection) {
+      updateLastUsed(connection.id)
     }
   }, [onConnect, updateLastUsed])
 

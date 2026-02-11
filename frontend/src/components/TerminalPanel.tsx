@@ -83,32 +83,41 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
         await navigator.clipboard.writeText(selection)
         terminal.clearSelection()
         setCopyHint('已复制')
-        setTimeout(() => setCopyHint(null), 1000)
+        setTimeout(() => setCopyHint(null), 800)
       } catch {
         setCopyHint('复制失败')
-        setTimeout(() => setCopyHint(null), 1000)
+        setTimeout(() => setCopyHint(null), 800)
       }
     } else {
-      // 没有选中内容，执行粘贴
+      // 没有选中内容，直接粘贴
       try {
         const text = await navigator.clipboard.readText()
         if (text && ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'input',
-            sessionId,
-            data: text,
-          }))
-          setCopyHint('已粘贴')
-          setTimeout(() => setCopyHint(null), 1000)
-        } else if (!text) {
-          setCopyHint('剪贴板为空')
-          setTimeout(() => setCopyHint(null), 1000)
+          ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(text)}}`)
         }
-      } catch (err) {
-        console.error('粘贴失败:', err)
-        setCopyHint('粘贴失败')
-        setTimeout(() => setCopyHint(null), 1000)
+      } catch {
+        // 剪贴板访问失败，静默处理
       }
+    }
+  }, [sessionId])
+
+  // 监听 paste 事件来处理粘贴（Ctrl+V）
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) return
+      
+      const text = e.clipboardData?.getData('text')
+      if (text) {
+        e.preventDefault()
+        ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(text)}}`)
+      }
+    }
+    
+    const container = containerRef.current
+    if (container) {
+      container.addEventListener('paste', handlePaste)
+      return () => container.removeEventListener('paste', handlePaste)
     }
   }, [sessionId])
 
@@ -117,7 +126,7 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
     if (!terminalRef.current) return
 
     // 检查是否已有该 session 的终端实例
-    let terminalData = globalTerminals.get(sessionId)
+    const terminalData = globalTerminals.get(sessionId)
     
     if (terminalData) {
       // 已有终端实例，重新附加到 DOM
@@ -126,8 +135,8 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       
       setTimeout(() => {
         try {
-          terminalData!.fitAddon.fit()
-        } catch {}
+          terminalData.fitAddon.fit()
+        } catch { /* ignore */ }
       }, 100)
       
       xtermRef.current = terminalData.terminal
@@ -146,10 +155,12 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       fontFamily: terminalFontFamily,
       theme: convertToXtermTheme(theme.terminal),
       allowTransparency: true,
-      scrollback: 5000, // 减少滚动缓冲区大小以节省内存
-      fastScrollModifier: 'alt', // 按住 Alt 快速滚动
+      scrollback: 3000,
+      fastScrollModifier: 'alt',
       fastScrollSensitivity: 5,
-      smoothScrollDuration: 0, // 禁用平滑滚动以提升性能
+      smoothScrollDuration: 0,
+      drawBoldTextInBrightColors: false,
+      minimumContrastRatio: 1,
     })
 
     const fitAddon = new FitAddon()
@@ -159,7 +170,7 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
     try {
       const webLinksAddon = new WebLinksAddon()
       terminal.loadAddon(webLinksAddon)
-    } catch {}
+    } catch { /* ignore */ }
     
     terminal.open(terminalRef.current)
     
@@ -167,7 +178,7 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
     setTimeout(() => {
       try {
         fitAddon.fit()
-      } catch {}
+      } catch { /* ignore */ }
     }, 100)
 
     // 存储到全局
@@ -188,20 +199,6 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       if (termData?.ws?.readyState === WebSocket.OPEN) {
         termData.ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(data)}}`)
       }
-    })
-
-    // 处理 Ctrl+V 粘贴
-    terminal.attachCustomKeyEventHandler((event) => {
-      if (event.ctrlKey && event.key === 'v' && event.type === 'keydown') {
-        navigator.clipboard.readText().then((text) => {
-          const termData = globalTerminals.get(sessionId)
-          if (text && termData?.ws?.readyState === WebSocket.OPEN) {
-            termData.ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(text)}}`)
-          }
-        }).catch(() => {})
-        return false // 阻止默认行为
-      }
-      return true
     })
 
     // 处理终端大小变化
@@ -354,10 +351,10 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
               }
               break
           }
-        } catch {}
+        } catch { /* ignore parse errors */ }
       }
 
-      ws.onerror = () => {}
+      ws.onerror = () => { /* ignore */ }
 
       ws.onclose = () => {
         const termData = globalTerminals.get(sessionId)
@@ -392,7 +389,7 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       requestAnimationFrame(() => {
         try {
           fitAddonRef.current?.fit()
-        } catch {}
+        } catch { /* ignore */ }
       })
     }
   }, [])
@@ -439,7 +436,7 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
             xtermRef.current.refresh(0, xtermRef.current.rows - 1)
             xtermRef.current.scrollToBottom()
             xtermRef.current.focus()
-          } catch {}
+          } catch { /* ignore */ }
         }
       }, 100)
       
@@ -455,11 +452,11 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       onClick={focus}
       onContextMenu={handleContextMenu}
     >
-      {/* 终端容器，添加内边距避免圆角遮挡 */}
+      {/* 终端容器，使用 calc 预留底部空间 */}
       <div
         ref={terminalRef}
-        className="w-full h-full"
-        style={{ padding: '8px 6px 12px 6px' }}
+        className="w-full"
+        style={{ height: 'calc(100% - 20px)', padding: '8px 6px 0 6px' }}
       />
       {/* 复制/粘贴提示 */}
       {copyHint && (

@@ -95,15 +95,17 @@ export class WebSocketHandler {
 
     // 如果 shell 已存在，直接发送输入（最快路径）
     if (session.shell) {
-      sshManager.sendInput(sessionId, data)
+      session.shell.write(data)
       return
     }
 
     // 创建 shell
     try {
       const shell = await sshManager.createShell(sessionId)
-      if (shell) this.setupShellOutput(sessionId, shell)
-      sshManager.sendInput(sessionId, data)
+      if (shell) {
+        this.setupShellOutput(sessionId, shell)
+        shell.write(data)
+      }
     } catch {
       this.sendError(ws, 'Failed to create shell', sessionId)
     }
@@ -153,21 +155,14 @@ export class WebSocketHandler {
     this.outputBuffer.set(sessionId, [])
 
     shell.on('data', (data: Buffer) => {
-      const dataStr = data.toString('utf-8')
       const ws = this.sessionToWs.get(sessionId)
       
       if (ws && ws.readyState === WebSocket.OPEN) {
-        const buffer = this.outputBuffer.get(sessionId)
-        if (buffer && buffer.length > 0) {
-          for (const bufferedData of buffer) {
-            this.sendMessage(ws, { type: 'output', sessionId, data: bufferedData })
-          }
-          this.outputBuffer.set(sessionId, [])
-        }
-        this.sendMessage(ws, { type: 'output', sessionId, data: dataStr })
+        // 直接发送，不经过 JSON.stringify 的 sendMessage
+        ws.send(`{"type":"output","sessionId":"${sessionId}","data":${JSON.stringify(data.toString('utf-8'))}}`)
       } else {
         const buffer = this.outputBuffer.get(sessionId) || []
-        buffer.push(dataStr)
+        buffer.push(data.toString('utf-8'))
         this.outputBuffer.set(sessionId, buffer)
       }
     })

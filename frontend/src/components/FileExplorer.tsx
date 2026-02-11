@@ -19,7 +19,7 @@ export const loadFavorites = (sessionId: string): { directories: FavoriteItem[];
   try {
     const data = localStorage.getItem(getFavoritesKey(sessionId))
     if (data) return JSON.parse(data)
-  } catch {}
+  } catch { /* ignore parse errors */ }
   return { directories: [], files: [] }
 }
 
@@ -83,6 +83,7 @@ const FileRow = memo(({ file, selected, onSelect, onDblClick, onCtx }: { file: F
   const dt = formatDateTime(new Date(file.modifiedTime))
   return (
     <div 
+      data-file-item
       className={`flex items-center px-3 cursor-pointer select-none ${selected ? 'bg-primary/25 text-primary' : 'text-text-secondary hover:text-text hover:bg-surface/30'}`}
       style={{ height: FILE_ITEM_HEIGHT }} 
       onClick={onSelect} 
@@ -122,9 +123,10 @@ export interface FileExplorerProps {
   onContextMenu?: (f: FileItem, pos: { x: number; y: number }) => void
   favoriteKey?: number
   favoriteStoreKey?: string // 用于收藏存储的 key
+  refreshKey?: number // 刷新触发器
 }
 
-export function FileExplorer({ sessionId, currentPath, onPathChange, onFileSelect, onFileDoubleClick, onContextMenu, favoriteKey = 0, favoriteStoreKey }: FileExplorerProps) {
+export function FileExplorer({ sessionId, currentPath, onPathChange, onFileSelect, onFileDoubleClick, onContextMenu, favoriteKey = 0, favoriteStoreKey, refreshKey = 0 }: FileExplorerProps) {
   const storeKey = favoriteStoreKey || sessionId // 收藏存储用的 key
   const [files, setFiles] = useState<FileItem[]>([])
   const [selected, setSelected] = useState<FileItem | null>(null)
@@ -154,7 +156,7 @@ export function FileExplorer({ sessionId, currentPath, onPathChange, onFileSelec
     finally { setLoading(false) }
   }, [sessionId])
 
-  useEffect(() => { load(currentPath) }, [currentPath, load])
+  useEffect(() => { load(currentPath) }, [currentPath, load, refreshKey])
 
   const select = (f: FileItem) => { setSelected(f); onFileSelect(f) }
   const dblClick = (f: FileItem) => f.type === 'directory' ? onPathChange(currentPath === '/' ? `/${f.name}` : `${currentPath}/${f.name}`) : onFileDoubleClick(f)
