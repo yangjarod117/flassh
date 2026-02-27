@@ -84,13 +84,13 @@ const FileRow = memo(({ file, selected, onSelect, onDblClick, onCtx }: { file: F
   return (
     <div 
       data-file-item
-      className={`flex items-center px-3 cursor-pointer select-none ${selected ? 'bg-primary/25 text-primary' : 'text-text-secondary hover:text-text hover:bg-surface/30'}`}
+      className={`flex items-center px-3 cursor-pointer select-none transition-all duration-150 rounded-lg mx-1 ${selected ? 'bg-primary/25 text-primary' : 'text-text-secondary hover:text-text hover:bg-white/10 hover:backdrop-blur-sm hover:scale-[1.02]'}`}
       style={{ height: FILE_ITEM_HEIGHT }} 
       onClick={onSelect} 
       onDoubleClick={onDblClick} 
       onContextMenu={onCtx}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0 h-full"><FileIcon type={file.type} name={file.name} /><span className="flex-1 min-w-0 truncate text-sm">{file.name}</span></div>
+      <div className="flex items-center gap-2 flex-1 min-w-0 h-full"><FileIcon type={file.type} name={file.name} /><span className="flex-1 min-w-0 truncate text-sm group-hover:text-base">{file.name}</span></div>
       <span className="text-xs text-secondary/70 text-left flex-shrink-0 px-2 truncate" style={{ width: COL_WIDTHS.size }}>{file.type === 'directory' ? '文件夹' : formatFileSize(file.size)}</span>
       <span className="text-xs text-secondary/70 text-right flex-shrink-0 px-2 truncate hidden md:block" style={{ width: COL_WIDTHS.time }}>{dt.date} {dt.time}</span>
     </div>

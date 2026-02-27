@@ -89,12 +89,12 @@ function TabItem({
         cursor-pointer select-none transition-all duration-200 ease-out
         relative rounded-lg md:rounded-xl
         ${isActive
-          ? 'bg-primary/20 text-text scale-105'
-          : 'bg-transparent text-text-muted opacity-40 hover:opacity-80 hover:text-text hover:bg-surface/50'
+          ? 'bg-primary/25 text-text scale-105'
+          : 'bg-transparent text-text-secondary opacity-70 hover:opacity-100 hover:text-text hover:bg-surface/50'
         }
       `}
       style={isActive ? {
-        boxShadow: '0 0 20px rgba(0, 212, 255, 0.4), inset 0 0 10px rgba(0, 212, 255, 0.1)',
+        boxShadow: '0 0 25px rgba(0, 212, 255, 0.5), 0 0 50px rgba(0, 212, 255, 0.3), inset 0 0 15px rgba(0, 212, 255, 0.15)',
       } : undefined}
       onClick={onSelect}
       onDoubleClick={handleDoubleClick}

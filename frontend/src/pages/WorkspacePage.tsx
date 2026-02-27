@@ -6,7 +6,7 @@ import { createLogEntry, addLog as addLogToList, clearLogs as clearLogsList } fr
 import type { FileItem, LogEntry, SessionState } from '../types'
 
 // 当前版本号
-const CURRENT_VERSION = '1.1.7'
+const CURRENT_VERSION = '1.1.8'
 
 // 版本检测组件
 const VersionBadge = memo(() => {

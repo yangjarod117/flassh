@@ -193,6 +193,7 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
     { id: 'newFolder', label: '新建文件夹', icon: 'newFolder', onClick: () => { setDialog('newFolder', true); closeContextMenu() } },
     { id: 'newFile', label: '新建文件', icon: 'newFile', onClick: () => { setDialog('newFile', true); closeContextMenu() } },
     { id: 'upload', label: '上传文件', icon: 'upload', onClick: () => { fileInputRef.current?.click(); closeContextMenu() } },
+    { id: 'openTerminal', label: '在此目录打开终端', icon: 'terminal', onClick: () => { onOpenTerminalInDir?.(currentPath); closeContextMenu() } },
     { id: 'refresh', label: '刷新', icon: 'refresh', onClick: () => { refresh(); closeContextMenu() } },
   ] : menuItems
 

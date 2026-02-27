@@ -93,7 +93,9 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       try {
         const text = await navigator.clipboard.readText()
         if (text && ws?.readyState === WebSocket.OPEN) {
-          ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(text)}}`)
+          // 处理换行符，将 \r\n 转换为 \r，避免 nano 等编辑器格式问题
+          const normalizedText = text.replace(/\r\n/g, '\r').replace(/\n/g, '\r')
+          ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(normalizedText)}}`)
         }
       } catch {
         // 剪贴板访问失败，静默处理
@@ -101,7 +103,7 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
     }
   }, [sessionId])
 
-  // 监听 paste 事件来处理粘贴（Ctrl+V）
+  // 监听 paste 事件来处理粘贴
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const ws = wsRef.current
@@ -110,7 +112,9 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       const text = e.clipboardData?.getData('text')
       if (text) {
         e.preventDefault()
-        ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(text)}}`)
+        // 处理换行符，将 \r\n 转换为 \r，避免 nano 等编辑器格式问题
+        const normalizedText = text.replace(/\r\n/g, '\r').replace(/\n/g, '\r')
+        ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(normalizedText)}}`)
       }
     }
     
@@ -199,6 +203,22 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       if (termData?.ws?.readyState === WebSocket.OPEN) {
         termData.ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(data)}}`)
       }
+    })
+
+    // 处理 Ctrl+V 粘贴（Windows 支持）
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (event.ctrlKey && event.key === 'v' && event.type === 'keydown') {
+        navigator.clipboard.readText().then((text) => {
+          const termData = globalTerminals.get(sessionId)
+          if (text && termData?.ws?.readyState === WebSocket.OPEN) {
+            // 处理换行符，将 \r\n 转换为 \r，避免 nano 等编辑器格式问题
+            const normalizedText = text.replace(/\r\n/g, '\r').replace(/\n/g, '\r')
+            termData.ws.send(`{"type":"input","sessionId":"${sessionId}","data":${JSON.stringify(normalizedText)}}`)
+          }
+        }).catch(() => { /* ignore */ })
+        return false
+      }
+      return true
     })
 
     // 处理终端大小变化
