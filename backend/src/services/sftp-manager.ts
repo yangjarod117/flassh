@@ -8,7 +8,7 @@ interface DirCache {
   timestamp: number
 }
 const dirCache = new Map<string, DirCache>()
-const CACHE_TTL = 5000 // 5秒缓存
+const CACHE_TTL = 5000 // 5秒缓存（读操作），写操作会主动失效
 
 /**
  * SFTP 文件操作管理器
@@ -43,7 +43,7 @@ export class SFTPManager {
           return
         }
 
-        const files: FileStats[] = list.map((item: FileEntry) => ({
+    const files: FileStats[] = list.map((item: FileEntry) => ({
           name: item.filename,
           path: `${path}/${item.filename}`.replace(/\/+/g, '/'),
           type: this.getFileType(item.attrs),
@@ -120,22 +120,24 @@ export class SFTPManager {
   }
 
   /**
-   * 写入文件内容
+   * 写入文件内容（保留原文件权限）
    */
   async writeFile(sessionId: string, path: string, content: string): Promise<void> {
     const sftp = await this.ensureSFTP(sessionId)
 
+    // 获取原文件权限，写入时直接指定 mode 保持不变
+    let mode: number | undefined
+    try {
+      const stats = await new Promise<{ mode: number }>((res, rej) => {
+        sftp.stat(path, (err, s) => err ? rej(err) : res(s))
+      })
+      mode = stats.mode & 0o7777
+    } catch { /* 新文件，使用默认权限 */ }
+
     return new Promise((resolve, reject) => {
-      const stream = sftp.createWriteStream(path)
-
-      stream.on('close', () => {
-        resolve()
-      })
-
-      stream.on('error', (err: Error) => {
-        reject(err)
-      })
-
+      const stream = sftp.createWriteStream(path, mode !== undefined ? { mode } : undefined)
+      stream.on('close', () => resolve())
+      stream.on('error', (err: Error) => reject(err))
       stream.end(content, 'utf-8')
     })
   }

@@ -1,11 +1,13 @@
 import { useState, useCallback, useRef, useEffect, memo } from 'react'
 import { FileExplorer, addFavorite } from './FileExplorer'
+import type { FileExplorerHandle } from './FileExplorer'
 import { ContextMenu, generateContextMenuItems } from './ContextMenu'
 import { ConfirmDialog, InputDialog } from './Dialog'
 import { FileConflictDialog } from './FileConflictDialog'
 import { calculateTransferProgress, detectFileConflict, downloadFile } from './FileTransfer'
 import { createFile, createDirectory, renameFile, deleteFile, deleteDirectory, copyPathToClipboard, validateFileName, getParentPath, joinPath } from '../utils/file-operations'
-import type { FileItem, ContextMenuPosition, TransferProgress, ContextMenuItem } from '../types'
+import { formatFileSize, formatSpeed, formatDateTime } from '../utils/formatting'
+import type { FileItem, ContextMenuPosition, TransferProgress } from '../types'
 
 export interface FileManagerCompleteProps {
   sessionId: string
@@ -15,14 +17,6 @@ export interface FileManagerCompleteProps {
   onOpenTerminalInDir?: (path: string) => void
 }
 
-// 缓存格式化函数
-const SIZE_UNITS = ['B', 'KB', 'MB', 'GB']
-const formatSize = (bytes: number) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024, i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${SIZE_UNITS[i]}`
-}
-const formatSpeed = (bps: number) => bps < 1024 ? `${bps.toFixed(0)} B/s` : bps < 1048576 ? `${(bps / 1024).toFixed(1)} KB/s` : `${(bps / 1048576).toFixed(1)} MB/s`
 
 // 上传进度组件 - memo 优化
 const UploadProgress = memo(({ uploads }: { uploads: TransferProgress[] }) => {
@@ -35,7 +29,7 @@ const UploadProgress = memo(({ uploads }: { uploads: TransferProgress[] }) => {
           <div key={u.fileName} className="px-3 py-2 border-b border-border/30 last:border-0">
             <div className="flex items-center justify-between mb-1"><span className="text-sm text-white truncate flex-1 mr-2">{u.fileName}</span><span className="text-xs text-secondary">{u.percentage}%</span></div>
             <div className="h-1.5 bg-background rounded-full overflow-hidden"><div className="h-full bg-primary transition-all duration-300" style={{ width: `${u.percentage}%` }} /></div>
-            <div className="flex items-center justify-between mt-1 text-xs text-secondary"><span>{formatSize(u.transferredBytes)} / {formatSize(u.totalBytes)}</span><span>{formatSpeed(u.speed)}</span></div>
+            <div className="flex items-center justify-between mt-1 text-xs text-secondary"><span>{formatFileSize(u.transferredBytes)} / {formatFileSize(u.totalBytes)}</span><span>{formatSpeed(u.speed)}</span></div>
           </div>
         ))}
       </div>
@@ -64,6 +58,7 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
   const [uploads, setUploads] = useState<TransferProgress[]>([])
   const [conflictDialog, setConflictDialog] = useState<{ fileName: string; onOverwrite: () => void; onSkip: () => void } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const explorerRef = useRef<FileExplorerHandle>(null)
 
   const loadFiles = useCallback(async () => {
     try {
@@ -139,16 +134,33 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
 
   const handleDownload = async () => {
     if (!selectedFile) return
-    if (selectedFile.type === 'directory') { showToast('error', '文件夹下载功能暂未实现'); closeContextMenu(); return }
-    try { await downloadFile(sessionId, selectedFile); showToast('success', '下载已开始') }
-    catch { showToast('error', '下载失败') }
+    try {
+      if (selectedFile.type === 'directory') {
+        // 文件夹：通过 tar.gz 流式下载
+        const url = `/api/sessions/${sessionId}/files/download-dir?path=${encodeURIComponent(selectedFile.path)}`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('下载失败')
+        const blob = await res.blob()
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `${selectedFile.name}.tar.gz`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(link.href)
+      } else {
+        await downloadFile(sessionId, selectedFile)
+      }
+      showToast('success', '下载已开始')
+    } catch { showToast('error', '下载失败') }
     closeContextMenu()
   }
 
   const handleOpen = () => {
     if (!selectedFile) return
     if (selectedFile.type === 'directory') {
-      setCurrentPath(selectedFile.path)
+      // 树形模式下，"打开"文件夹 = 展开该节点
+      explorerRef.current?.expandDir(selectedFile)
     } else {
       onFileOpen?.(selectedFile)
     }
@@ -178,9 +190,9 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
 
   const handleOpenTerminal = () => { if (selectedFile?.type === 'directory') { onOpenTerminalInDir?.(selectedFile.path); closeContextMenu() } }
 
-  const handleFavorite = () => {
+  const handleFavorite = async () => {
     if (!selectedFile) return
-    addFavorite(favoriteStoreKey, {
+    await addFavorite(favoriteStoreKey, {
       path: selectedFile.path,
       name: selectedFile.name,
       type: selectedFile.type === 'directory' ? 'directory' : 'file'
@@ -190,45 +202,32 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
     closeContextMenu()
   }
 
-  const menuItems = contextMenu ? generateContextMenuItems({
-    file: contextMenu.file, onOpen: handleOpen, onEdit: handleEdit,
-    onRename: () => { setDialog('rename', true); closeContextMenu() },
-    onDelete: () => { setDialog('delete', true); closeContextMenu() },
-    onCopyPath: handleCopyPath, onDownload: handleDownload,
-    onUpload: () => fileInputRef.current?.click(),
-    onNewFile: () => { setDialog('newFile', true); closeContextMenu() },
-    onNewFolder: () => { setDialog('newFolder', true); closeContextMenu() },
-    onOpenTerminal: handleOpenTerminal,
-    onFavorite: handleFavorite,
-  }) : []
-
-  // 空白处右键菜单
-  const handleBlankContextMenu = (e: React.MouseEvent) => {
-    // 只在空白处触发（不是文件项）
-    if ((e.target as HTMLElement).closest('[data-file-item]')) return
-    e.preventDefault()
-    e.stopPropagation()
-    setSelectedFile(null)
-    setContextMenu({
-      file: { name: '', path: currentPath, type: 'directory', size: 0, modifiedTime: new Date(), permissions: '' },
-      position: { x: e.clientX, y: e.clientY }
+  const menuItems = contextMenu ? [
+    // 第一行显示修改时间（不可点击）
+    {
+      id: 'modifiedTime',
+      label: `修改: ${formatDateTime(new Date(contextMenu.file.modifiedTime))}`,
+      disabled: true,
+      onClick: () => {},
+    },
+    ...generateContextMenuItems({
+      file: contextMenu.file, onOpen: handleOpen, onEdit: handleEdit,
+      onRename: () => { setDialog('rename', true); closeContextMenu() },
+      onDelete: () => { setDialog('delete', true); closeContextMenu() },
+      onCopyPath: handleCopyPath, onDownload: handleDownload,
+      onUpload: () => fileInputRef.current?.click(),
+      onNewFile: () => { setDialog('newFile', true); closeContextMenu() },
+      onNewFolder: () => { setDialog('newFolder', true); closeContextMenu() },
+      onOpenTerminal: handleOpenTerminal,
+      onFavorite: handleFavorite,
     })
-  }
-
-  // 空白处菜单项
-  const blankMenuItems: ContextMenuItem[] = !contextMenu?.file.name ? [
-    { id: 'newFolder', label: '新建文件夹', icon: 'newFolder', onClick: () => { setDialog('newFolder', true); closeContextMenu() } },
-    { id: 'newFile', label: '新建文件', icon: 'newFile', onClick: () => { setDialog('newFile', true); closeContextMenu() } },
-    { id: 'upload', label: '上传文件', icon: 'upload', onClick: () => { fileInputRef.current?.click(); closeContextMenu() } },
-    { id: 'openTerminal', label: '在此目录打开终端', icon: 'terminal', onClick: () => { onOpenTerminalInDir?.(currentPath); closeContextMenu() } },
-    { id: 'refresh', label: '刷新', icon: 'refresh', onClick: () => { refresh(); closeContextMenu() } },
-  ] : menuItems
+  ] : []
 
   return (
-    <div className="relative h-full" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onContextMenu={handleBlankContextMenu}>
+    <div className="relative h-full" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={e => handleFileSelect(e.target.files)} />
       
-      <FileExplorer sessionId={sessionId} currentPath={currentPath} onPathChange={setCurrentPath} onFileSelect={setSelectedFile}
+      <FileExplorer ref={explorerRef} sessionId={sessionId} currentPath={currentPath} onPathChange={setCurrentPath} onFileSelect={setSelectedFile}
         onFileDoubleClick={file => { if (file.type !== 'directory') onFileEdit?.(file) }}
         onContextMenu={(file, pos) => { setSelectedFile(file); setContextMenu({ file, position: pos }) }}
         favoriteKey={favoriteKey} favoriteStoreKey={favoriteStoreKey} refreshKey={refreshKey} />
@@ -242,7 +241,7 @@ export function FileManagerComplete({ sessionId, serverKey, onFileOpen, onFileEd
         </div>
       )}
 
-      {contextMenu && <ContextMenu items={blankMenuItems} position={contextMenu.position} onClose={closeContextMenu} />}
+      {contextMenu && <ContextMenu items={menuItems} position={contextMenu.position} onClose={closeContextMenu} />}
 
       <InputDialog isOpen={dialogs.newFile} onClose={() => setDialog('newFile', false)} onConfirm={handleNewFile} title="新建文件" placeholder="请输入文件名" confirmText="创建" isLoading={isLoading} validator={validateFileName} />
       <InputDialog isOpen={dialogs.newFolder} onClose={() => setDialog('newFolder', false)} onConfirm={handleNewFolder} title="新建文件夹" placeholder="请输入文件夹名" confirmText="创建" isLoading={isLoading} validator={validateFileName} />

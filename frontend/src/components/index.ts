@@ -4,7 +4,7 @@ export { ThemeSelector } from './ThemeSelector'
 export { ConnectionForm } from './ConnectionForm'
 export { SavedConnectionList } from './SavedConnectionList'
 export { TabBar, calculateTabOverflow } from './TabBar'
-export { FileExplorer, formatFileSize } from './FileExplorer'
+export { FileExplorer } from './FileExplorer'
 export type { FileExplorerProps } from './FileExplorer'
 export {
   ContextMenu,
@@ -16,16 +16,11 @@ export {
 export type { ContextMenuProps, GenerateMenuItemsOptions } from './ContextMenu'
 export { Dialog, ConfirmDialog, InputDialog } from './Dialog'
 export type { DialogProps, ConfirmDialogProps, InputDialogProps } from './Dialog'
-export { FileManager } from './FileManager'
-export type { FileManagerProps } from './FileManager'
 export {
-  UploadArea,
-  DownloadProgress,
   downloadFile,
   calculateTransferProgress,
   detectFileConflict,
 } from './FileTransfer'
-export type { UploadAreaProps, DownloadProgressProps } from './FileTransfer'
 export { FileConflictDialog } from './FileConflictDialog'
 export type { FileConflictDialogProps } from './FileConflictDialog'
 export { FileManagerComplete } from './FileManagerComplete'
@@ -35,7 +30,6 @@ export {
   LargeFileWarningDialog,
   getLanguageFromPath,
   isLargeFile,
-  formatFileSize as formatFileSizeEditor,
   LARGE_FILE_THRESHOLD,
 } from './FileEditor'
 export type { FileEditorProps, LargeFileWarningDialogProps } from './FileEditor'
@@ -55,7 +49,5 @@ export {
 export type { LogPanelProps } from './LogPanel'
 export { TerminalPanel, cleanupTerminal } from './TerminalPanel'
 export { VirtualList, calculateVisibleRange } from './VirtualList'
-export { SystemMonitor } from './SystemMonitor'
-export { LoginHistory } from './LoginHistory'
 export { SidePanel } from './SidePanel'
 export { AccessPasswordDialog, hashPassword } from './AccessPasswordDialog'

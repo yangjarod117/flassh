@@ -22,9 +22,9 @@ const STORAGE_KEY = 'flassh-layout'
  */
 export const useLayoutStore = create<LayoutState>()(
   persist(
-    (set: (fn: (state: LayoutState) => Partial<LayoutState> | LayoutState) => void, get: () => LayoutState) => ({
+    (set, get) => ({
       ratio: DEFAULT_SPLIT_RATIO,
-      isCollapsed: false,
+      isCollapsed: false as boolean,
       collapsedRatio: DEFAULT_SPLIT_RATIO,
       
       setRatio: (ratio: number) => {

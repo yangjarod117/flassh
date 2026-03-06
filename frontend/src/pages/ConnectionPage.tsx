@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, memo } from 'react'
 import { ConnectionForm, SavedConnectionList, ThemeSelector } from '../components'
 import { useConnectionsStore, useThemeStore } from '../store'
+import { getSystemThemePreference } from '../store/theme'
 import type { ConnectionConfig, SavedConnection } from '../types'
 
 interface ConnectionPageProps {
@@ -68,8 +69,9 @@ export function ConnectionPage({ onConnect, onBack }: ConnectionPageProps) {
   const [selectedConnection, setSelectedConnection] = useState<SavedConnection | null>(null)
   
   const { saveConnection, updateLastUsed } = useConnectionsStore()
-  const { currentThemeId } = useThemeStore()
-  const isLight = currentThemeId === 'light'
+  const currentThemeId = useThemeStore(s => s.currentThemeId)
+  const followSystemTheme = useThemeStore(s => s.followSystemTheme)
+  const isLight = (followSystemTheme ? getSystemThemePreference() : currentThemeId) === 'light'
 
   const handleConnect = useCallback(async (config: ConnectionConfig, saveInfo?: { save: boolean; name: string; saveCredentials?: boolean }) => {
     setIsLoading(true)
@@ -119,7 +121,7 @@ export function ConnectionPage({ onConnect, onBack }: ConnectionPageProps) {
 
       {/* 顶部工具栏 */}
       <header 
-        className="flex items-center justify-between px-4 py-3 backdrop-blur-md shrink-0 relative z-10"
+        className="flex items-center justify-between px-4 py-3 backdrop-blur-md shrink-0 relative z-20"
         style={{
           background: isLight ? 'rgba(255, 255, 255, 0.6)' : 'rgba(17, 24, 39, 0.5)',
           borderBottom: `1px solid ${isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 212, 255, 0.1)'}`,
@@ -139,12 +141,10 @@ export function ConnectionPage({ onConnect, onBack }: ConnectionPageProps) {
           )}
           
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center"
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent flex items-center justify-center"
               style={{ boxShadow: '0 2px 10px rgba(0, 212, 255, 0.3)' }}
             >
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+              <img src="/vite.svg" alt="Flassh" className="w-5 h-5" />
             </div>
             <h1 className="text-lg font-semibold text-text">
               {onBack ? '添加新连接' : 'Flassh'}

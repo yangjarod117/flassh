@@ -11,6 +11,7 @@ import filesRouter from './routes/files.js'
 import monitorRouter from './routes/monitor.js'
 import credentialsRouter from './routes/credentials.js'
 import accessRouter from './routes/access.js'
+import favoritesRouter from './routes/favorites.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
 
 // ESM 兼容的 __dirname
@@ -53,6 +54,7 @@ app.use('/api/sessions', sessionsRouter)
 app.use('/api/sessions', filesRouter)
 app.use('/api/sessions', monitorRouter)
 app.use('/api/credentials', credentialsRouter)
+app.use('/api/favorites', favoritesRouter)
 
 // 生产环境 SPA 路由回退
 if (process.env.NODE_ENV === 'production') {

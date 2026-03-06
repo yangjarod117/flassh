@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useThemeStore } from '../store'
+import { getSystemThemePreference } from '../store/theme'
 import type { ConnectionConfig } from '../types'
 
 interface ConnectionFormProps {
@@ -23,8 +24,9 @@ export function ConnectionForm({ onConnect, isLoading = false, initialConfig, is
   const [connectionName, setConnectionName] = useState('')
   const [error, setError] = useState('')
   
-  const { currentThemeId } = useThemeStore()
-  const isLight = currentThemeId === 'light'
+  const currentThemeId = useThemeStore(s => s.currentThemeId)
+  const followSystemTheme = useThemeStore(s => s.followSystemTheme)
+  const isLight = (followSystemTheme ? getSystemThemePreference() : currentThemeId) === 'light'
 
   useEffect(() => {
     if (initialConfig) {

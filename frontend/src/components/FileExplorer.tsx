@@ -1,8 +1,6 @@
-import { useState, useEffect, useCallback, memo, useMemo } from 'react'
+import { useState, useEffect, useCallback, memo, useRef, forwardRef, useImperativeHandle } from 'react'
 import type { FileItem } from '../types'
-import { VirtualList } from './VirtualList'
-
-const FILE_ITEM_HEIGHT = 24, VIRTUAL_THRESHOLD = 100, COL_WIDTHS = { size: 55, time: 120 }
+import { formatFileSize } from '../utils/formatting'
 
 // 收藏项类型
 export interface FavoriteItem {
@@ -11,42 +9,43 @@ export interface FavoriteItem {
   type: 'file' | 'directory'
 }
 
-// 收藏存储 key - 使用 host:port 作为标识，这样刷新后不会丢失
-const getFavoritesKey = (sessionId: string) => `flassh-favorites-${sessionId}`
-
-// 加载收藏
-export const loadFavorites = (sessionId: string): { directories: FavoriteItem[]; files: FavoriteItem[] } => {
+// 后端 API 收藏操作
+export const loadFavorites = async (serverKey: string): Promise<{ directories: FavoriteItem[]; files: FavoriteItem[] }> => {
   try {
-    const data = localStorage.getItem(getFavoritesKey(sessionId))
-    if (data) return JSON.parse(data)
-  } catch { /* ignore parse errors */ }
+    const res = await fetch(`/api/favorites/${encodeURIComponent(serverKey)}`)
+    if (res.ok) return await res.json()
+  } catch { /* ignore */ }
   return { directories: [], files: [] }
 }
 
-// 保存收藏
-export const saveFavorites = (sessionId: string, favorites: { directories: FavoriteItem[]; files: FavoriteItem[] }) => {
-  localStorage.setItem(getFavoritesKey(sessionId), JSON.stringify(favorites))
+export const saveFavorites = async (serverKey: string, favorites: { directories: FavoriteItem[]; files: FavoriteItem[] }) => {
+  try {
+    await fetch(`/api/favorites/${encodeURIComponent(serverKey)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(favorites),
+    })
+  } catch { /* ignore */ }
 }
 
-// 添加收藏
-export const addFavorite = (sessionId: string, item: FavoriteItem) => {
-  const favorites = loadFavorites(sessionId)
-  const list = item.type === 'directory' ? favorites.directories : favorites.files
-  if (!list.some(f => f.path === item.path)) {
-    list.push(item)
-    saveFavorites(sessionId, favorites)
-  }
+export const addFavorite = async (serverKey: string, item: FavoriteItem) => {
+  try {
+    await fetch(`/api/favorites/${encodeURIComponent(serverKey)}/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    })
+  } catch { /* ignore */ }
 }
 
-// 移除收藏
-export const removeFavorite = (sessionId: string, path: string, type: 'file' | 'directory') => {
-  const favorites = loadFavorites(sessionId)
-  if (type === 'directory') {
-    favorites.directories = favorites.directories.filter(f => f.path !== path)
-  } else {
-    favorites.files = favorites.files.filter(f => f.path !== path)
-  }
-  saveFavorites(sessionId, favorites)
+export const removeFavorite = async (serverKey: string, path: string, type: 'file' | 'directory') => {
+  try {
+    await fetch(`/api/favorites/${encodeURIComponent(serverKey)}/remove`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, type }),
+    })
+  } catch { /* ignore */ }
 }
 
 const FILE_COLORS: Record<string, string> = {
@@ -58,46 +57,63 @@ const FILE_COLORS: Record<string, string> = {
 }
 
 const FileIcon = ({ type, name }: { type: FileItem['type']; name: string }) => {
-  if (type === 'directory') return <svg className="w-5 h-5 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
-  if (type === 'symlink') return <svg className="w-5 h-5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+  if (type === 'directory') return <svg className="w-4 h-4 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
+  if (type === 'symlink') return <svg className="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
   const ext = name.split('.').pop()?.toLowerCase() || ''
-  return <svg className={`w-5 h-5 flex-shrink-0 ${FILE_COLORS[ext] || 'text-secondary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+  return <svg className={`w-4 h-4 flex-shrink-0 ${FILE_COLORS[ext] || 'text-secondary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
 }
 
-export const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${s[i]}`
+export { formatFileSize } from '../utils/formatting'
+
+// 树节点数据
+interface TreeNode {
+  file: FileItem
+  children: TreeNode[] | null // null = 未加载, [] = 已加载但为空
+  loading: boolean
 }
 
-// 缓存日期格式化器
-const dateFormatter = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
-const timeFormatter = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' })
+// 排序：文件夹在前，按名称排序
+const sortFiles = (files: FileItem[]) => files.sort((a, b) => {
+  const aIsDir = a.type === 'directory' ? 0 : 1
+  const bIsDir = b.type === 'directory' ? 0 : 1
+  if (aIsDir !== bIsDir) return aIsDir - bIsDir
+  return a.name.localeCompare(b.name)
+})
 
-const formatDateTime = (date: Date) => {
-  if (isNaN(date.getTime())) return { date: '--', time: '' }
-  try {
-    return { date: dateFormatter.format(date), time: timeFormatter.format(date) }
-  } catch { return { date: '--', time: '' } }
-}
-
-const FileRow = memo(({ file, selected, onSelect, onDblClick, onCtx }: { file: FileItem; selected: boolean; onSelect: () => void; onDblClick: () => void; onCtx: (e: React.MouseEvent) => void }) => {
-  const dt = useMemo(() => formatDateTime(new Date(file.modifiedTime)), [file.modifiedTime])
+// 树节点行组件
+const TreeRow = memo(({ node, depth, expanded, selected, onToggle, onSelect, onDblClick, onCtx }: {
+  node: TreeNode; depth: number; expanded: boolean; selected: boolean
+  onToggle: () => void; onSelect: () => void; onDblClick: () => void; onCtx: (e: React.MouseEvent) => void
+}) => {
+  const isDir = node.file.type === 'directory'
   return (
-    <div 
+    <div
       data-file-item
-      className={`flex items-center px-3 cursor-pointer select-none transition-all duration-150 rounded-lg mx-1 ${selected ? 'bg-primary/25 text-primary' : 'text-text-secondary hover:text-text hover:bg-white/10 hover:backdrop-blur-sm hover:scale-[1.02]'}`}
-      style={{ height: FILE_ITEM_HEIGHT }} 
-      onClick={onSelect} 
-      onDoubleClick={onDblClick} 
+      className={`flex items-center pr-3 cursor-pointer select-none transition-all duration-150 rounded-lg mx-1 relative ${selected ? 'bg-primary/25 text-primary' : 'text-text-secondary hover:text-text hover:bg-primary/15 hover:shadow-[0_0_12px_rgba(0,212,255,0.15)] hover:backdrop-blur-md hover:scale-[1.04]'}`}
+      style={{ height: 22, paddingLeft: depth * 18 + 8 }}
+      onClick={() => { onSelect(); if (isDir) onToggle() }}
+      onDoubleClick={onDblClick}
       onContextMenu={onCtx}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0 h-full"><FileIcon type={file.type} name={file.name} /><span className="flex-1 min-w-0 truncate text-sm group-hover:text-base">{file.name}</span></div>
-      <span className="text-xs text-secondary/70 text-left flex-shrink-0 px-2 truncate" style={{ width: COL_WIDTHS.size }}>{file.type === 'directory' ? '文件夹' : formatFileSize(file.size)}</span>
-      <span className="text-xs text-secondary/70 text-right flex-shrink-0 px-2 truncate hidden md:block" style={{ width: COL_WIDTHS.time }}>{dt.date} {dt.time}</span>
+      {/* 树形层级竖线 - 淡蓝色微光 */}
+      {Array.from({ length: depth }, (_, i) => (
+        <span key={i} className="absolute top-0 bottom-0" style={{ left: i * 18 + 16, width: 1, background: 'rgba(100, 180, 255, 0.2)', boxShadow: '0 0 3px rgba(100, 180, 255, 0.15)' }} />
+      ))}
+      {/* 展开/收起箭头 */}
+      {isDir ? (
+        <svg className={`w-3.5 h-3.5 flex-shrink-0 mr-1 text-secondary transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      ) : (
+        <span className="w-3.5 h-3.5 flex-shrink-0 mr-1" />
+      )}
+      <FileIcon type={node.file.type} name={node.file.name} />
+      <span className="flex-1 min-w-0 truncate text-sm ml-1.5">{node.file.name}</span>
+      <span className="text-xs text-secondary/60 flex-shrink-0 ml-2">{isDir ? '文件夹' : formatFileSize(node.file.size)}</span>
+      {node.loading && <svg className="w-3 h-3 animate-spin text-secondary ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
     </div>
   )
-}, (prev, next) => prev.file.path === next.file.path && prev.file.modifiedTime === next.file.modifiedTime && prev.selected === next.selected)
+}, (prev, next) => prev.node === next.node && prev.depth === next.depth && prev.expanded === next.expanded && prev.selected === next.selected)
 
 const Breadcrumb = ({ path, onNav }: { path: string; onNav: (p: string) => void }) => {
   const parts = path.split('/').filter(Boolean)
@@ -119,65 +135,171 @@ const Breadcrumb = ({ path, onNav }: { path: string; onNav: (p: string) => void 
   )
 }
 
+export interface FileExplorerHandle {
+  expandDir: (file: FileItem) => void
+}
+
 export interface FileExplorerProps {
   sessionId: string; currentPath: string; onPathChange: (p: string) => void
   onFileSelect: (f: FileItem) => void; onFileDoubleClick: (f: FileItem) => void
   onContextMenu?: (f: FileItem, pos: { x: number; y: number }) => void
   favoriteKey?: number
-  favoriteStoreKey?: string // 用于收藏存储的 key
-  refreshKey?: number // 刷新触发器
+  favoriteStoreKey?: string
+  refreshKey?: number
 }
 
-export function FileExplorer({ sessionId, currentPath, onPathChange, onFileSelect, onFileDoubleClick, onContextMenu, favoriteKey = 0, favoriteStoreKey, refreshKey = 0 }: FileExplorerProps) {
-  const storeKey = favoriteStoreKey || sessionId // 收藏存储用的 key
-  const [files, setFiles] = useState<FileItem[]>([])
+export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(function FileExplorer({ sessionId, currentPath, onPathChange, onFileSelect, onFileDoubleClick, onContextMenu, favoriteKey = 0, favoriteStoreKey, refreshKey = 0 }, ref) {
+  const storeKey = favoriteStoreKey || sessionId
+  const [rootNodes, setRootNodes] = useState<TreeNode[]>([])
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
+  const [childrenCache, setChildrenCache] = useState<Map<string, TreeNode[]>>(new Map())
+  const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<FileItem | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showFavorites, setShowFavorites] = useState(false)
   const [favTab, setFavTab] = useState<'directories' | 'files'>('directories')
   const [favorites, setFavorites] = useState<{ directories: FavoriteItem[]; files: FavoriteItem[] }>({ directories: [], files: [] })
+  const sessionIdRef = useRef(sessionId)
+  sessionIdRef.current = sessionId
 
-  // 加载收藏
   useEffect(() => {
-    setFavorites(loadFavorites(storeKey))
+    loadFavorites(storeKey).then(setFavorites)
   }, [storeKey, favoriteKey])
 
-  const load = useCallback(async (path: string) => {
-    if (!sessionId) return
+  // 加载目录内容
+  const loadDir = useCallback(async (path: string): Promise<FileItem[]> => {
+    const res = await fetch(`/api/sessions/${sessionIdRef.current}/files?path=${encodeURIComponent(path)}`)
+    if (!res.ok) {
+      const errData = await res.json()
+      throw new Error(errData.message || '加载目录失败')
+    }
+    const data = await res.json()
+    return sortFiles(data.files)
+  }, [])
+
+  // 记录上一次的根路径，用于判断是否切换了根目录
+  const prevPathRef = useRef(currentPath)
+
+  // 加载根目录
+  const loadRoot = useCallback(async () => {
     setLoading(true); setError(null)
+    const pathChanged = prevPathRef.current !== currentPath
+    prevPathRef.current = currentPath
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/files?path=${encodeURIComponent(path)}`)
-      if (!res.ok) {
-        const errData = await res.json()
-        throw new Error(errData.message || '加载目录失败')
+      const files = await loadDir(currentPath)
+      const nodes: TreeNode[] = files.map(f => ({ file: f, children: null, loading: false }))
+      setRootNodes(nodes)
+
+      if (pathChanged) {
+        // 切换根目录时清空展开状态和缓存
+        setExpandedPaths(new Set())
+        setChildrenCache(new Map())
+      } else {
+        // 刷新时保留展开状态，并行重新加载所有已展开的子目录
+        setExpandedPaths(prev => {
+          if (prev.size === 0) return prev
+          const toRefresh = Array.from(prev)
+          // 并行刷新所有已展开目录的缓存
+          Promise.all(toRefresh.map(p =>
+            loadDir(p).then(subFiles => {
+              const subNodes: TreeNode[] = subFiles.map(f => ({ file: f, children: null, loading: false }))
+              setChildrenCache(c => new Map(c).set(p, subNodes))
+            }).catch(() => { /* 子目录加载失败忽略 */ })
+          ))
+          return prev
+        })
       }
-      const data = await res.json()
-      // 优化：使用更快的排序
-      const sortedFiles = data.files.sort((a: FileItem, b: FileItem) => {
-        const aIsDir = a.type === 'directory' ? 0 : 1
-        const bIsDir = b.type === 'directory' ? 0 : 1
-        if (aIsDir !== bIsDir) return aIsDir - bIsDir
-        return a.name.localeCompare(b.name)
-      })
-      setFiles(sortedFiles)
     } catch (e) { setError(e instanceof Error ? e.message : '加载目录失败') }
     finally { setLoading(false) }
-  }, [sessionId])
+  }, [currentPath, loadDir])
 
-  useEffect(() => { load(currentPath) }, [currentPath, load, refreshKey])
+  useEffect(() => { loadRoot() }, [loadRoot, refreshKey])
 
-  const select = (f: FileItem) => { setSelected(f); onFileSelect(f) }
-  const dblClick = (f: FileItem) => f.type === 'directory' ? onPathChange(currentPath === '/' ? `/${f.name}` : `${currentPath}/${f.name}`) : onFileDoubleClick(f)
-  const ctx = (e: React.MouseEvent, f: FileItem) => { e.preventDefault(); setSelected(f); onFileSelect(f); onContextMenu?.(f, { x: e.clientX, y: e.clientY }) }
+  // 展开/收起文件夹
+  const toggleDir = useCallback(async (file: FileItem) => {
+    const path = file.path
+    setExpandedPaths(prev => {
+      const next = new Set(prev)
+      if (next.has(path)) {
+        next.delete(path)
+      } else {
+        next.add(path)
+        // 如果还没加载过子目录，触发加载
+        if (!childrenCache.has(path)) {
+          setLoadingPaths(lp => new Set(lp).add(path))
+          loadDir(path).then(files => {
+            const nodes: TreeNode[] = files.map(f => ({ file: f, children: null, loading: false }))
+            setChildrenCache(c => new Map(c).set(path, nodes))
+            setLoadingPaths(lp => { const n = new Set(lp); n.delete(path); return n })
+          }).catch(() => {
+            setLoadingPaths(lp => { const n = new Set(lp); n.delete(path); return n })
+          })
+        }
+      }
+      return next
+    })
+  }, [childrenCache, loadDir])
+
+  // 暴露给父组件的方法
+  useImperativeHandle(ref, () => ({
+    expandDir: (file: FileItem) => {
+      if (file.type === 'directory' && !expandedPaths.has(file.path)) {
+        toggleDir(file)
+      }
+    }
+  }), [expandedPaths, toggleDir])
+
+  // 面包屑显示的路径：选中文件夹时显示其路径，选中文件时显示其父目录，否则显示根路径
+  const breadcrumbPath = selected
+    ? (selected.type === 'directory' ? selected.path : selected.path.substring(0, selected.path.lastIndexOf('/')) || '/')
+    : currentPath
+
+  const select = useCallback((f: FileItem) => { setSelected(f); onFileSelect(f) }, [onFileSelect])
+  const dblClick = useCallback((f: FileItem) => {
+    if (f.type === 'directory') return
+    onFileDoubleClick(f)
+  }, [onFileDoubleClick])
+  const ctx = useCallback((e: React.MouseEvent, f: FileItem) => { e.preventDefault(); setSelected(f); onFileSelect(f); onContextMenu?.(f, { x: e.clientX, y: e.clientY }) }, [onFileSelect, onContextMenu])
   const goUp = () => { if (currentPath === '/') return; const p = currentPath.split('/').filter(Boolean); p.pop(); onPathChange(p.length ? '/' + p.join('/') : '/') }
 
-  const renderList = () => {
+  // 递归渲染树
+  const renderTree = (nodes: TreeNode[], depth: number): React.ReactNode => {
+    return nodes.map(node => {
+      const isDir = node.file.type === 'directory'
+      const expanded = expandedPaths.has(node.file.path)
+      const isLoading = loadingPaths.has(node.file.path)
+      const children = childrenCache.get(node.file.path)
+
+      return (
+        <div key={node.file.path}>
+          <TreeRow
+            node={{ ...node, loading: isLoading }}
+            depth={depth}
+            expanded={expanded}
+            selected={selected?.path === node.file.path}
+            onToggle={() => isDir && toggleDir(node.file)}
+            onSelect={() => select(node.file)}
+            onDblClick={() => dblClick(node.file)}
+            onCtx={e => ctx(e, node.file)}
+          />
+          {isDir && expanded && children && (
+            <div>
+              {children.length === 0 ? (
+                <div className="text-xs text-secondary/50 italic ml-2" style={{ paddingLeft: (depth + 1) * 16 + 8 }}>空目录</div>
+              ) : renderTree(children, depth + 1)}
+            </div>
+          )}
+        </div>
+      )
+    })
+  }
+
+  const renderContent = () => {
     if (loading) return <div className="flex items-center justify-center h-32"><div className="flex items-center gap-2 text-secondary"><svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span>加载中...</span></div></div>
-    if (error) return <div className="flex flex-col items-center justify-center h-32 gap-2"><svg className="w-8 h-8 text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg><span className="text-error text-sm">{error}</span><button onClick={() => load(currentPath)} className="px-3 py-1 text-sm bg-surface hover:bg-surface/80 rounded transition-colors">重试</button></div>
-    if (!files.length) return <div className="flex flex-col items-center justify-center h-32 text-secondary"><svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg><span className="text-sm">空目录</span></div>
-    const row = (f: FileItem) => <FileRow key={f.path} file={f} selected={selected?.path === f.path} onSelect={() => select(f)} onDblClick={() => dblClick(f)} onCtx={e => ctx(e, f)} />
-    return files.length > VIRTUAL_THRESHOLD ? <VirtualList items={files} itemHeight={FILE_ITEM_HEIGHT} renderItem={row} getKey={f => f.path} className="h-full" /> : <div className="h-full overflow-y-auto">{files.map(row)}</div>
+    if (error) return <div className="flex flex-col items-center justify-center h-32 gap-2"><svg className="w-8 h-8 text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg><span className="text-error text-sm">{error}</span><button onClick={loadRoot} className="px-3 py-1 text-sm bg-surface hover:bg-surface/80 rounded transition-colors">重试</button></div>
+    if (!rootNodes.length) return <div className="flex flex-col items-center justify-center h-32 text-secondary"><svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg><span className="text-sm">空目录</span></div>
+    return <div className="h-full overflow-y-auto py-1">{renderTree(rootNodes, 0)}</div>
   }
 
   const btnCls = (disabled: boolean) => `p-1.5 rounded-lg backdrop-blur-sm transition-all border ${disabled ? 'text-secondary/30 cursor-not-allowed bg-surface/50 border-border' : 'text-secondary hover:text-white bg-surface hover:bg-primary/20 border-border'}`
@@ -186,31 +308,34 @@ export function FileExplorer({ sessionId, currentPath, onPathChange, onFileSelec
     if (item.type === 'directory') {
       onPathChange(item.path)
     } else {
-      // 导航到文件所在目录
       const dir = item.path.substring(0, item.path.lastIndexOf('/')) || '/'
       onPathChange(dir)
     }
+    setSelected(null)
     setShowFavorites(false)
   }
 
-  const handleRemoveFavorite = (item: FavoriteItem) => {
-    removeFavorite(storeKey, item.path, item.type)
-    setFavorites(loadFavorites(storeKey))
+  const handleRemoveFavorite = async (item: FavoriteItem) => {
+    await removeFavorite(storeKey, item.path, item.type)
+    setFavorites(await loadFavorites(storeKey))
   }
 
   return (
-    <div className="flex flex-col h-full bg-transparent relative">
+    <div className="flex flex-col h-full relative backdrop-blur-md bg-surface/60">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
         <button onClick={goUp} disabled={currentPath === '/'} className={btnCls(currentPath === '/')} title="返回上级目录">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
         </button>
-        <button onClick={() => load(currentPath)} disabled={loading} className={`${btnCls(loading)} ${loading ? 'animate-spin' : ''}`} title="刷新">
+        <button onClick={loadRoot} disabled={loading} className={`${btnCls(loading)} ${loading ? 'animate-spin' : ''}`} title="刷新">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
         </button>
         <button onClick={() => setShowFavorites(!showFavorites)} className={`${btnCls(false)} ${showFavorites ? 'bg-primary/30 text-primary border-primary/50' : ''}`} title="收藏夹">
           <svg className="w-5 h-5" fill={showFavorites ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
         </button>
-        <div className="flex-1" /><span className="text-xs text-secondary">{files.length} 项</span>
+        <button onClick={() => { setExpandedPaths(new Set()); setChildrenCache(new Map()) }} disabled={expandedPaths.size === 0} className={btnCls(expandedPaths.size === 0)} title="收起全部">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" /></svg>
+        </button>
+        <div className="flex-1" /><span className="text-xs text-secondary">{rootNodes.length} 项</span>
       </div>
 
       {/* 收藏面板 */}
@@ -246,13 +371,8 @@ export function FileExplorer({ sessionId, currentPath, onPathChange, onFileSelec
         </div>
       )}
 
-      <Breadcrumb path={currentPath} onNav={onPathChange} />
-      <div className="flex items-center px-3 border-b border-border bg-surface/50 text-xs text-secondary/70" style={{ height: 28 }}>
-        <div className="flex items-center gap-2 flex-1 min-w-0 h-full"><span className="w-5 flex-shrink-0" /><span className="flex-1 min-w-0">名称</span></div>
-        <span className="text-left flex-shrink-0 px-2" style={{ width: COL_WIDTHS.size }}>大小</span>
-        <span className="text-left flex-shrink-0 px-2 hidden md:block" style={{ width: COL_WIDTHS.time }}>修改时间</span>
-      </div>
-      <div className="flex-1 overflow-hidden">{renderList()}</div>
+      <Breadcrumb path={breadcrumbPath} onNav={onPathChange} />
+      <div className="flex-1 overflow-hidden">{renderContent()}</div>
     </div>
   )
-}
+})

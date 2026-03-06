@@ -3,6 +3,7 @@ import Editor, { OnMount, OnChange } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { useEditorStore } from '../store/editor'
 import { useThemeStore } from '../store/theme'
+import { formatFileSize } from '../utils/formatting'
 import { ConfirmDialog } from './Dialog'
 
 /**
@@ -74,15 +75,6 @@ export const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024
  */
 export function isLargeFile(size: number): boolean {
   return size > LARGE_FILE_THRESHOLD
-}
-
-/**
- * 格式化文件大小
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 /**

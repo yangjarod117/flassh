@@ -17,7 +17,6 @@ const execCommand = (client: any, cmd: string): Promise<string> => {
   })
 }
 
-/** 获取会话或返回 404 错误 */
 const getSessionOrError = (id: string, res: Response) => {
   const session = sshManager.getSession(id)
   if (!session?.connection) {
@@ -30,7 +29,7 @@ const getSessionOrError = (id: string, res: Response) => {
 /** GET /api/sessions/:id/monitor - 获取系统监控数据 */
 router.get('/:id/monitor', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const session = getSessionOrError(req.params.id, res)
+    const session = getSessionOrError(req.params.id as string, res)
     if (!session) return
     res.json(await executeMonitorCommands(session.connection))
   } catch (err) { next(err) }
@@ -39,7 +38,7 @@ router.get('/:id/monitor', async (req: Request, res: Response, next: NextFunctio
 /** GET /api/sessions/:id/login-history - 获取登录历史 */
 router.get('/:id/login-history', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const session = getSessionOrError(req.params.id, res)
+    const session = getSessionOrError(req.params.id as string, res)
     if (!session) return
     res.json({ history: await getLoginHistory(session.connection) })
   } catch (err) { next(err) }
@@ -48,7 +47,7 @@ router.get('/:id/login-history', async (req: Request, res: Response, next: NextF
 /** GET /api/sessions/:id/top-processes - 获取内存占用前10进程 */
 router.get('/:id/top-processes', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const session = getSessionOrError(req.params.id, res)
+    const session = getSessionOrError(req.params.id as string, res)
     if (!session) return
     res.json({ processes: await getTopProcesses(session.connection) })
   } catch (err) { next(err) }

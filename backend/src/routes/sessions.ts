@@ -84,7 +84,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
  * GET /api/sessions/:id/status
  */
 router.get('/:id/status', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const status = sshManager.getSessionStatus(id)
 
   if (!status) {
@@ -103,7 +103,7 @@ router.get('/:id/status', (req: Request, res: Response) => {
  * DELETE /api/sessions/:id
  */
 router.delete('/:id', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const success = sshManager.disconnect(id)
 
   if (!success) {
@@ -122,7 +122,7 @@ router.delete('/:id', (req: Request, res: Response) => {
  * POST /api/sessions/:id/disconnect
  */
 router.post('/:id/disconnect', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   console.log(`[Sessions] Disconnect request for session ${id}`)
   
   const success = sshManager.disconnect(id)

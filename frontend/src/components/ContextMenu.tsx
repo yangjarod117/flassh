@@ -57,9 +57,9 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
         adjustedX = viewportWidth - rect.width - 8
       }
 
-      // 如果菜单超出下边界
-      if (position.y + rect.height > viewportHeight) {
-        adjustedY = viewportHeight - rect.height - 8
+      // 如果菜单超出下边界（预留 80px 给 macOS Dock 等系统 UI）
+      if (position.y + rect.height > viewportHeight - 80) {
+        adjustedY = viewportHeight - rect.height - 80
       }
 
       menu.style.left = `${adjustedX}px`
@@ -93,7 +93,7 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
             onClick={() => handleItemClick(item)}
             disabled={item.disabled}
             className={`
-              w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm
+              w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs
               transition-all duration-150 relative
               ${item.disabled
                 ? 'text-text-muted cursor-not-allowed'
@@ -196,6 +196,11 @@ function getMenuIcon(iconName: string): React.ReactNode {
     refresh: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+    ),
+    time: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
   }

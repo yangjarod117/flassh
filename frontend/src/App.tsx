@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, lazy, Suspense, useRef } from 'react'
 import { ThemeProvider, ErrorBoundary, setupGlobalErrorHandlers, cleanupTerminal, AccessPasswordDialog, hashPassword } from './components'
 import { useTabsStore, useThemeStore } from './store'
+import { getSystemThemePreference } from './store/theme'
 import { createLogEntry } from './utils/logs'
 import type { ConnectionConfig, SessionState } from './types'
 
@@ -15,10 +16,8 @@ function LoadingFallback() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
-        <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center animate-pulse">
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+        <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-primary to-accent flex items-center justify-center animate-pulse">
+          <img src="/vite.svg" alt="Flassh" className="w-7 h-7" />
         </div>
         <p className="text-text-secondary">加载中...</p>
       </div>
@@ -41,9 +40,11 @@ function AppContent() {
   const connectionConfigsRef = useRef<Map<string, ConnectionConfig>>(new Map())
   const [showConnectionPage, setShowConnectionPage] = useState(true)
   const { addTab, removeTab, tabs, activeTabId } = useTabsStore()
-  const { getUIFontFamily, getCurrentTheme } = useThemeStore()
+  const currentThemeId = useThemeStore(s => s.currentThemeId)
+  const followSystemTheme = useThemeStore(s => s.followSystemTheme)
+  const { getUIFontFamily } = useThemeStore()
   const uiFontFamily = getUIFontFamily()
-  const isLight = getCurrentTheme().type === 'light'
+  const isLight = (followSystemTheme ? getSystemThemePreference() : currentThemeId) === 'light'
 
   // 获取当前活动的会话
   const activeTab = tabs.find(t => t.id === activeTabId)

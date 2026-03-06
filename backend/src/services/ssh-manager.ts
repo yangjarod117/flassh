@@ -70,7 +70,7 @@ export class SSHManager {
         port: config.port,
         username: config.username,
         readyTimeout: 10000,
-        keepaliveInterval: 5000, // 每5秒发送keepalive，保持连接活跃
+        keepaliveInterval: 10000, // 每10秒发送keepalive
         keepaliveCountMax: 3,
         // 性能优化
         algorithms: {

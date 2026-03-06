@@ -107,9 +107,12 @@ function TabItem({
       <span
         className={`
           w-1.5 h-1.5 md:w-2 md:h-2 rounded-full flex-shrink-0 transition-shadow duration-300
-          ${tab.isConnected ? 'bg-success' : 'bg-secondary'}
+          ${tab.isConnected ? 'bg-success' : 'bg-error animate-pulse'}
         `}
-        style={tab.isConnected ? { boxShadow: '0 0 8px rgba(0, 255, 136, 0.6)' } : undefined}
+        style={tab.isConnected
+          ? { boxShadow: '0 0 8px rgba(0, 255, 136, 0.6)' }
+          : { boxShadow: '0 0 8px rgba(255, 71, 87, 0.6)' }
+        }
       />
 
       {/* 标签名称 */}

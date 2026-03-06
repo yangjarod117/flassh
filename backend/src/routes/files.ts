@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express'
 import multer from 'multer'
 import { sftpManager } from '../services/sftp-manager.js'
 import { fileTransferManager } from '../services/file-transfer.js'
+import { sshManager } from '../services/ssh-manager.js'
 import type { ApiError } from '../types/index.js'
 
 const router = Router()
@@ -13,7 +14,7 @@ const upload = multer({ storage: multer.memoryStorage() })
  */
 router.get('/:id/files', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const path = (req.query.path as string) || '/'
 
     const files = await sftpManager.listDirectory(id, path)
@@ -54,7 +55,7 @@ router.get('/:id/files', async (req: Request, res: Response, next: NextFunction)
  */
 router.post('/:id/files', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const { path, type } = req.body
 
     if (!path || !type) {
@@ -84,7 +85,7 @@ router.post('/:id/files', async (req: Request, res: Response, next: NextFunction
  */
 router.put('/:id/files', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const { path, newPath } = req.body
 
     if (!path || !newPath) {
@@ -108,7 +109,7 @@ router.put('/:id/files', async (req: Request, res: Response, next: NextFunction)
  */
 router.delete('/:id/files', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const path = req.query.path as string
     const type = req.query.type as string
 
@@ -138,7 +139,7 @@ router.delete('/:id/files', async (req: Request, res: Response, next: NextFuncti
  */
 router.get('/:id/files/content', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const path = req.query.path as string
 
     if (!path) {
@@ -150,9 +151,7 @@ router.get('/:id/files/content', async (req: Request, res: Response, next: NextF
     }
 
     const content = await sftpManager.readFile(id, path)
-    const stats = await sftpManager.stat(id, path)
-
-    res.json({ path, content, size: stats.size })
+    res.json({ path, content })
   } catch (err) {
     next(err)
   }
@@ -165,7 +164,7 @@ router.get('/:id/files/content', async (req: Request, res: Response, next: NextF
  */
 router.put('/:id/files/content', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const { path, content } = req.body
 
     if (!path || content === undefined) {
@@ -193,7 +192,7 @@ router.post(
   upload.single('file'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params
+      const id = req.params.id as string
       const targetPath = req.body.path || '/'
       const file = req.file
 
@@ -226,7 +225,7 @@ router.post(
  */
 router.get('/:id/files/download', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const path = req.query.path as string
 
     if (!path) {
@@ -250,12 +249,52 @@ router.get('/:id/files/download', async (req: Request, res: Response, next: Next
 })
 
 /**
+ * 下载文件夹（tar.gz 流式传输）
+ * GET /api/sessions/:id/files/download-dir?path=/home/user/folder
+ */
+router.get('/:id/files/download-dir', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string
+    const dirPath = req.query.path as string
+
+    if (!dirPath) {
+      const error: ApiError = { code: 'INVALID_REQUEST', message: '缺少 path 参数' }
+      return res.status(400).json(error)
+    }
+
+    const session = sshManager.getSession(id)
+    if (!session || session.status !== 'connected') {
+      const error: ApiError = { code: 'SESSION_NOT_FOUND', message: 'Session not found or not connected' }
+      return res.status(404).json(error)
+    }
+
+    const dirName = dirPath.split('/').pop() || 'folder'
+    const parentDir = dirPath.substring(0, dirPath.lastIndexOf('/')) || '/'
+
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(dirName)}.tar.gz"`)
+    res.setHeader('Content-Type', 'application/gzip')
+    res.setHeader('Transfer-Encoding', 'chunked')
+
+    session.connection.exec(`tar czf - -C "${parentDir}" "${dirName}"`, (err, stream) => {
+      if (err) {
+        return next(err)
+      }
+      stream.pipe(res)
+      stream.stderr.on('data', () => { /* ignore tar warnings */ })
+      stream.on('close', () => { if (!res.writableEnded) res.end() })
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
  * 检查文件是否存在
  * GET /api/sessions/:id/files/exists?path=/home/user/file.txt
  */
 router.get('/:id/files/exists', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const path = req.query.path as string
 
     if (!path) {

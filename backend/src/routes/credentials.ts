@@ -55,7 +55,7 @@ router.post('/connections', (req: Request, res: Response, next: NextFunction) =>
  * PUT /api/credentials/connections/:id
  */
 router.put('/connections/:id', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const updates = req.body
 
   const success = credentialStore.updateConnection(id, {
@@ -79,7 +79,7 @@ router.put('/connections/:id', (req: Request, res: Response) => {
  * DELETE /api/credentials/connections/:id
  */
 router.delete('/connections/:id', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const success = credentialStore.deleteConnection(id)
 
   if (!success) {
@@ -151,7 +151,7 @@ router.post('/', (req: Request, res: Response, next: NextFunction) => {
  * GET /api/credentials/:id
  */
 router.get('/:id', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const credential = credentialStore.get(id)
 
   if (!credential) {
@@ -170,7 +170,7 @@ router.get('/:id', (req: Request, res: Response) => {
  * GET /api/credentials/:id/exists
  */
 router.get('/:id/exists', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const exists = credentialStore.has(id)
   res.json({ exists })
 })
@@ -180,7 +180,7 @@ router.get('/:id/exists', (req: Request, res: Response) => {
  * DELETE /api/credentials/:id
  */
 router.delete('/:id', (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const success = credentialStore.delete(id)
 
   if (!success) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { formatFileSize, formatSpeed } from '../utils/formatting'
 
 interface MonitorData {
   cpu: { usage: number; model?: string }
@@ -10,13 +11,6 @@ interface MonitorData {
 }
 interface ProcessInfo { user: string; name: string; memoryMB: number; memoryPercent: number }
 interface LoginRecord { user: string; ip: string; time: string; duration: string; status: 'success' | 'failed' | 'current' }
-
-const formatBytes = (bytes: number, d = 1) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(d)) + ' ' + s[i]
-}
-const formatSpeed = (bps: number) => bps === 0 ? '0 B/s' : formatBytes(bps) + '/s'
 
 const ProgressBar = ({ value, color }: { value: number; color: string }) => {
   const c = value >= 90 ? 'bg-error' : value >= 70 ? 'bg-warning' : color
@@ -112,7 +106,7 @@ export function SidePanel({ sessionId }: { sessionId: string }) {
               : <>
                 <div><div className="flex justify-between mb-1 text-xs"><span className="text-text-secondary">CPU</span><span className="font-medium text-text">{data.cpu.usage.toFixed(1)}%</span></div><ProgressBar value={data.cpu.usage} color="bg-primary" /></div>
                 <div className="relative" onMouseEnter={() => { setShowProcs(true); fetchProcs() }} onMouseLeave={() => setShowProcs(false)}>
-                  <div className="flex justify-between mb-1 text-xs"><span className="text-text-secondary">内存</span><span className="font-medium text-text">{formatBytes(data.memory.used)} / {formatBytes(data.memory.total)}</span></div>
+                  <div className="flex justify-between mb-1 text-xs"><span className="text-text-secondary">内存</span><span className="font-medium text-text">{formatFileSize(data.memory.used)} / {formatFileSize(data.memory.total)}</span></div>
                   <ProgressBar value={data.memory.usagePercent} color="bg-accent" />
                   {showProcs && procs.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-2 bg-background border border-border rounded-lg shadow-lg z-50 p-2">
@@ -123,14 +117,14 @@ export function SidePanel({ sessionId }: { sessionId: string }) {
                     </div>
                   )}
                 </div>
-                <div><div className="flex justify-between mb-1 text-xs"><span className="text-text-secondary">磁盘</span><span className="font-medium text-text">{formatBytes(data.disk.used)} / {formatBytes(data.disk.total)}</span></div><ProgressBar value={data.disk.usagePercent} color="bg-success" /></div>
+                <div><div className="flex justify-between mb-1 text-xs"><span className="text-text-secondary">磁盘</span><span className="font-medium text-text">{formatFileSize(data.disk.used)} / {formatFileSize(data.disk.total)}</span></div><ProgressBar value={data.disk.usagePercent} color="bg-success" /></div>
                 <div className="pt-2 border-t border-border">
                   <div className="text-xs text-text-secondary mb-2">网络流量</div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center gap-1"><svg className="w-3 h-3 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg><span className="text-text-secondary">下载</span><span className="text-text font-medium ml-auto">{formatSpeed(speed.rx)}</span></div>
                     <div className="flex items-center gap-1"><svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg><span className="text-text-secondary">上传</span><span className="text-text font-medium ml-auto">{formatSpeed(speed.tx)}</span></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs mt-1 text-text-secondary"><span>总计: {formatBytes(data.network.rxBytes)}</span><span>总计: {formatBytes(data.network.txBytes)}</span></div>
+                  <div className="grid grid-cols-2 gap-2 text-xs mt-1 text-text-secondary"><span>总计: {formatFileSize(data.network.rxBytes)}</span><span>总计: {formatFileSize(data.network.txBytes)}</span></div>
                 </div>
                 <div className="pt-2 border-t border-border text-xs space-y-2">
                   <InfoRow label="主机名" value={data.system?.hostname} />
@@ -150,9 +144,11 @@ export function SidePanel({ sessionId }: { sessionId: string }) {
                 <div className="space-y-1">
                   {!history.length && <div className="text-sm text-text-secondary text-center py-4">暂无登录记录</div>}
                   {history.map((r, i) => (
-                    <div key={i} className={`p-2 rounded-lg text-xs ${r.status === 'failed' ? 'bg-error/10 border border-error/20' : r.status === 'current' ? 'bg-success/10 border border-success/20' : 'bg-background'}`}>
-                      <div className="flex justify-between mb-1"><div className="flex items-center gap-1.5"><StatusIcon s={r.status} /><span className={`font-medium ${statusColor(r.status)}`}>{r.user}</span></div><span className={r.status === 'failed' ? 'text-error' : 'text-text-secondary'}>{r.status === 'failed' ? '失败' : r.duration}</span></div>
-                      <div className="flex justify-between text-text-secondary"><span className="font-mono">{r.ip}</span><span>{r.time}</span></div>
+                    <div key={i} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs ${r.status === 'failed' ? 'bg-error/10 border border-error/20' : r.status === 'current' ? 'bg-success/10 border border-success/20' : 'bg-background'}`}>
+                      <StatusIcon s={r.status} />
+                      <span className={`font-medium ${statusColor(r.status)}`}>{r.user}</span>
+                      <span className="font-mono text-text-secondary">{r.ip}</span>
+                      <span className="text-text-secondary ml-auto whitespace-nowrap">{r.time}</span>
                     </div>
                   ))}
                 </div>

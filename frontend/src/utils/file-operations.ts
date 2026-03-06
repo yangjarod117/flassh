@@ -63,38 +63,7 @@ export const deleteDirectory = (sessionId: string, path: string) => deleteEntry(
  * 复制路径到剪贴板
  */
 export async function copyPathToClipboard(path: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(path)
-  } catch {
-    // 降级方案：使用 execCommand
-    const textArea = document.createElement('textarea')
-    textArea.value = path
-    textArea.style.position = 'fixed'
-    textArea.style.left = '-9999px'
-    document.body.appendChild(textArea)
-    textArea.select()
-    document.execCommand('copy')
-    document.body.removeChild(textArea)
-  }
-}
-
-/**
- * 检查文件是否存在
- */
-export async function checkFileExists(
-  sessionId: string,
-  path: string
-): Promise<boolean> {
-  const response = await fetch(
-    `/api/sessions/${sessionId}/files/exists?path=${encodeURIComponent(path)}`
-  )
-
-  if (!response.ok) {
-    return false
-  }
-
-  const data = await response.json()
-  return data.exists
+  await navigator.clipboard.writeText(path)
 }
 
 /**
@@ -123,13 +92,6 @@ export function validateFileName(name: string): string | null {
   }
 
   return null
-}
-
-/**
- * 从路径中提取文件名
- */
-export function getFileName(path: string): string {
-  return path.split('/').pop() || ''
 }
 
 /**

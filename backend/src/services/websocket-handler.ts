@@ -6,12 +6,13 @@ import { sshManager } from './ssh-manager.js'
 interface WebSocketClient extends WebSocket {
   sessionId?: string
   isAlive?: boolean
+  missedPongs?: number  // 连续未响应 pong 的次数
   cachedShell?: NodeJS.ReadWriteStream  // 缓存 shell 引用，跳过 Map 查找
 }
 
 // 预构建的消息模板，避免重复字符串拼接
 const MSG_PONG = (sessionId: string) => `{"type":"pong","sessionId":"${sessionId}"}`
-const MSG_OUTPUT = (sessionId: string, data: string) => `{"type":"output","sessionId":"${sessionId}","data":${JSON.stringify(data)}}`
+const MSG_OUTPUT_PREFIX = (sessionId: string) => `{"type":"output","sessionId":"${sessionId}","data":`
 const MSG_DISCONNECT = (sessionId: string) => `{"type":"disconnect","sessionId":"${sessionId}"}`
 const MSG_ERROR = (sessionId: string, error: string) => `{"type":"error","sessionId":"${sessionId}","error":"${error}"}`
 
@@ -35,9 +36,11 @@ export class WebSocketHandler {
   private setupHandlers(): void {
     this.wss.on('connection', (ws: WebSocketClient) => {
       ws.isAlive = true
+      ws.missedPongs = 0
 
       ws.on('pong', () => {
         ws.isAlive = true
+        ws.missedPongs = 0
       })
 
       ws.on('message', async (data) => {
@@ -70,6 +73,8 @@ export class WebSocketHandler {
       ws.on('close', () => {
         ws.cachedShell = undefined
         if (ws.sessionId) {
+          // 清理 output buffer 防止内存泄漏
+          this.outputBuffer.delete(ws.sessionId)
           if (this.sessionToWs.get(ws.sessionId) === ws) {
             this.sessionToWs.delete(ws.sessionId)
             setTimeout(() => {
@@ -196,6 +201,9 @@ export class WebSocketHandler {
     this.shellOutputSetup.add(sessionId)
     this.outputBuffer.set(sessionId, [])
 
+    // 预构建输出消息前缀，避免每次输出都拼接 sessionId
+    const outputPrefix = MSG_OUTPUT_PREFIX(sessionId)
+
     // 微批量输出：合并快速连续的数据块为一次 ws.send()
     let pendingData = ''
     let flushScheduled = false
@@ -205,8 +213,9 @@ export class WebSocketHandler {
       if (!pendingData) return
       
       const ws = this.sessionToWs.get(sessionId)
+      const msg = `${outputPrefix}${JSON.stringify(pendingData)}}`
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(MSG_OUTPUT(sessionId, pendingData))
+        ws.send(msg)
       } else {
         const buffer = this.outputBuffer.get(sessionId) || []
         buffer.push(pendingData)
@@ -265,7 +274,11 @@ export class WebSocketHandler {
   private startPingInterval(): void {
     this.pingInterval = setInterval(() => {
       this.wss.clients.forEach((ws: WebSocketClient) => {
-        if (ws.isAlive === false) return ws.terminate()
+        if (ws.isAlive === false) {
+          ws.missedPongs = (ws.missedPongs || 0) + 1
+          // 容忍 3 次未响应（约 90 秒），再断开
+          if (ws.missedPongs >= 3) return ws.terminate()
+        }
         ws.isAlive = false
         ws.ping()
       })
