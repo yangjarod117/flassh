@@ -58,7 +58,7 @@ app.use('/api/favorites', favoritesRouter)
 
 // 生产环境 SPA 路由回退
 if (process.env.NODE_ENV === 'production') {
-  app.get('*', (_req, res) => {
+  app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'index.html'))
   })
 }
