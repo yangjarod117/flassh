@@ -79,7 +79,8 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
   const [copyHint, setCopyHint] = useState<string | null>(null)
   const [isMobile] = useState(() => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window))
   const [selectMode, setSelectMode] = useState(false)
-  const selectRangeRef = useRef({ startLine: 0, endLine: 0 })
+  const [selectText, setSelectText] = useState('')
+  const selectTextareaRef = useRef<HTMLTextAreaElement>(null)
   const { getCurrentTheme, terminalFontSize, getTerminalFontFamily } = useThemeStore()
   const theme = getCurrentTheme()
   const terminalFontFamily = getTerminalFontFamily()
@@ -140,46 +141,48 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
     }
   }, [doCopy, doPaste])
 
-  // 移动端双击进入选择模式（选中当前行）
+  // 移动端双击进入选择模式 — 提取可见终端文本到 textarea
   const lastTapRef = useRef(0)
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!isMobile) return
+    if (!isMobile || selectMode) return
     const now = Date.now()
     if (now - lastTapRef.current < 300) {
       e.preventDefault()
       const terminal = xtermRef.current
       if (!terminal) return
-      const cursorY = terminal.buffer.active.cursorY + terminal.buffer.active.baseY
-      selectRangeRef.current = { startLine: cursorY, endLine: cursorY }
-      terminal.select(0, cursorY, terminal.cols)
+      // 提取当前可见区域的所有文本
+      const buf = terminal.buffer.active
+      const lines: string[] = []
+      for (let i = 0; i < terminal.rows; i++) {
+        const line = buf.getLine(buf.baseY + i)
+        if (line) lines.push(line.translateToString(true))
+      }
+      setSelectText(lines.join('\n'))
       setSelectMode(true)
+      // 延迟 focus textarea 让用户可以原生选择文字
+      setTimeout(() => selectTextareaRef.current?.focus(), 100)
     }
     lastTapRef.current = now
-  }, [isMobile])
+  }, [isMobile, selectMode])
 
-  // 选择模式：扩展/缩小选择范围
-  const adjustSelection = useCallback((direction: 'up' | 'down') => {
-    const terminal = xtermRef.current
-    if (!terminal || !selectMode) return
-    const range = selectRangeRef.current
-    if (direction === 'up') {
-      range.startLine = Math.max(0, range.startLine - 1)
-    } else {
-      range.endLine = Math.min(terminal.buffer.active.baseY + terminal.rows - 1, range.endLine + 1)
+  // 选择模式下复制选中文字后退出
+  const handleCopyFromTextarea = useCallback(async () => {
+    const textarea = selectTextareaRef.current
+    if (!textarea) return
+    const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
+    const textToCopy = selected || textarea.value
+    try {
+      await navigator.clipboard.writeText(textToCopy)
+      setCopyHint('已复制')
+    } catch {
+      setCopyHint('复制失败')
     }
-    const lines = range.endLine - range.startLine + 1
-    terminal.select(0, range.startLine, terminal.cols * lines)
-  }, [selectMode])
-
-  // 选择模式下复制后退出
-  const handleCopyAndExit = useCallback(async () => {
-    await doCopy()
+    setTimeout(() => setCopyHint(null), 800)
     setSelectMode(false)
-  }, [doCopy])
+  }, [])
 
   // 退出选择模式
   const exitSelectMode = useCallback(() => {
-    xtermRef.current?.clearSelection()
     setSelectMode(false)
   }, [])
 
@@ -684,28 +687,32 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
         className="w-full flex-1 min-h-0"
         style={{ padding: '8px 6px 0 6px' }}
       />
+      {/* 移动端选择模式 — 原生 textarea 弹层 */}
+      {isMobile && selectMode && (
+        <div className="absolute inset-0 z-20 flex flex-col" style={{ backgroundColor: theme.terminal.background }}>
+          <textarea
+            ref={selectTextareaRef}
+            className="flex-1 w-full p-3 text-sm resize-none border-none outline-none"
+            style={{ backgroundColor: theme.terminal.background, color: theme.terminal.foreground, fontFamily: terminalFontFamily, fontSize: terminalFontSize }}
+            value={selectText}
+            readOnly
+          />
+          <div className="flex items-center justify-end gap-1.5 px-2 py-1.5" style={{ backgroundColor: theme.terminal.background }}>
+            <span className="text-xs text-text-secondary mr-auto pl-1">长按选择文字</span>
+            <button className={`${toolBtnCls} bg-primary/30 text-primary border-primary/50`} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); handleCopyFromTextarea() }}>Copy</button>
+            <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); exitSelectMode() }}>✕</button>
+          </div>
+        </div>
+      )}
       {/* 移动端快捷工具栏 */}
-      {isMobile && (
+      {isMobile && !selectMode && (
         <div className="flex items-center justify-end gap-1.5 px-2 py-1.5" style={{ backgroundColor: theme.terminal.background }}>
-          {selectMode ? (
-            <>
-              <span className="text-xs text-primary mr-auto pl-1">↑↓ expand selection</span>
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); adjustSelection('up') }}>↑</button>
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); adjustSelection('down') }}>↓</button>
-              <div className="w-px h-5 bg-border/30 flex-shrink-0" />
-              <button className={`${toolBtnCls} bg-primary/30 text-primary border-primary/50`} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); handleCopyAndExit() }}>Copy</button>
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); exitSelectMode() }}>✕</button>
-            </>
-          ) : (
-            <>
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); doPaste() }}>Paste</button>
-              <div className="w-px h-5 bg-border/30 flex-shrink-0" />
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\t') }}>Tab</button>
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x03') }}>Ctrl+C</button>
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x1b[A') }}>↑</button>
-              <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x1b[B') }}>↓</button>
-            </>
-          )}
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); doPaste() }}>Paste</button>
+          <div className="w-px h-5 bg-border/30 flex-shrink-0" />
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\t') }}>Tab</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x03') }}>Ctrl+C</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x1b[A') }}>↑</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x1b[B') }}>↓</button>
         </div>
       )}
       {/* 复制/粘贴提示 */}
