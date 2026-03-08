@@ -115,13 +115,12 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
     } catch {}
   }, [])
 
-  // 发送特殊按键
+  // 发送特殊按键（移动端不 focus 终端，避免弹出键盘）
   const sendKey = useCallback((data: string) => {
     const termData = globalTerminals.get(currentSessionIdRef.current)
     if (termData?.ws?.readyState === WebSocket.OPEN && termData.inputMsgPrefix) {
       termData.ws.send(buildInputMsg(termData.inputMsgPrefix, data))
     }
-    xtermRef.current?.focus()
   }, [])
 
   // 右键复制/粘贴功能
@@ -142,11 +141,10 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
   }, [doCopy, doPaste])
 
   // 移动端长按复制/粘贴
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((_e: React.TouchEvent) => {
     touchMoved.current = false
     longPressTimer.current = setTimeout(async () => {
       if (touchMoved.current) return
-      e.preventDefault()
       const terminal = xtermRef.current
       if (!terminal) return
       const selection = terminal.getSelection()
@@ -651,7 +649,7 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
   }, [isActive, sessionId])
 
   // 移动端工具栏按钮样式
-  const toolBtnCls = "flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface/80 text-text-secondary active:bg-primary/30 active:text-primary transition-colors text-xs border border-border/50"
+  const toolBtnCls = "flex items-center justify-center px-2.5 py-1.5 rounded-lg bg-surface/80 text-text-secondary active:bg-primary/30 active:text-primary transition-colors text-xs border border-border/50 select-none"
 
   return (
     <div
@@ -672,22 +670,14 @@ export function TerminalPanel({ sessionId, isActive = true, onResize, onData, on
       />
       {/* 移动端快捷工具栏 */}
       {isMobile && (
-        <div className="flex items-center gap-1.5 px-2 py-1.5 overflow-x-auto" style={{ backgroundColor: theme.terminal.background }}>
-          <button className={toolBtnCls} onClick={doCopy}>
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-            复制
-          </button>
-          <button className={toolBtnCls} onClick={doPaste}>
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-            粘贴
-          </button>
+        <div className="flex items-center justify-end gap-1.5 px-2 py-1.5" style={{ backgroundColor: theme.terminal.background }}>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); doCopy() }}>Copy</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); doPaste() }}>Paste</button>
           <div className="w-px h-5 bg-border/30 flex-shrink-0" />
-          <button className={toolBtnCls} onClick={() => sendKey('\t')}>Tab</button>
-          <button className={toolBtnCls} onClick={() => sendKey('\x03')}>Ctrl+C</button>
-          <button className={toolBtnCls} onClick={() => sendKey('\x04')}>Ctrl+D</button>
-          <button className={toolBtnCls} onClick={() => sendKey('\x1b[A')}>↑</button>
-          <button className={toolBtnCls} onClick={() => sendKey('\x1b[B')}>↓</button>
-          <button className={toolBtnCls} onClick={() => sendKey('\x1b')}>Esc</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\t') }}>Tab</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x03') }}>Ctrl+C</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x1b[A') }}>↑</button>
+          <button className={toolBtnCls} onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); sendKey('\x1b[B') }}>↓</button>
         </div>
       )}
       {/* 复制/粘贴提示 */}
