@@ -143,7 +143,7 @@ export function SplitLayout({
         <button
           onClick={() => setShowMobileSidebar(!showMobileSidebar)}
           className="
-            fixed bottom-4 left-4 z-50
+            fixed bottom-14 left-4 z-50
             w-12 h-12 rounded-full
             bg-primary text-white shadow-theme-lg
             flex items-center justify-center
