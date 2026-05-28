@@ -79,7 +79,7 @@ async function executeMonitorCommands(client: any) {
     const sysInfoCmd = `echo "HOSTNAME:$(hostname 2>/dev/null || cat /etc/hostname 2>/dev/null)"; echo "KERNEL:$(uname -r 2>/dev/null)"; echo "UPTIME:$(uptime -p 2>/dev/null || uptime | sed 's/.*up //' | cut -d',' -f1-2)"; echo "LOAD:$(cat /proc/loadavg | awk '{print $1,$2,$3}')"`
     
     // 第二批：资源使用信息
-    const resourceCmd = `echo "CPU:$(top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | cut -d'%' -f1)"; echo "MEM:$(free -b | grep Mem | awk '{print $2,$3,$4,$7}')"; echo "DISK:$(df -B1 / | tail -1 | awk '{print $2,$3,$4,$5}')"; echo "NET:$(cat /proc/net/dev | grep -E 'eth0|ens|enp|wlan|wlp' | head -1 | awk '{print $2,$10}')"`
+    const resourceCmd = `echo "CPU:\$(top -bn2 -d 1 | grep -E '^%Cpu|^CPU:' | tail -1 | awk '{for(i=1;i<=NF;i++){if(index(\$i,"id")){printf "%.0f", 100-\$(i-1); exit}}}')"; echo "MEM:\$(free | grep Mem | awk '{print \$2*1024,\$3*1024,\$4*1024,\$7*1024}')"; echo "DISK:\$(df / /overlay 2>/dev/null | grep -E '^/|/overlay' | tail -1 | awk '{print \$2*1024,\$3*1024,\$4*1024,\$5}' || df -B1 / | tail -1 | awk '{print \$2,\$3,\$4,\$5}')"; echo "NET:\$(cat /proc/net/dev | grep -E 'eth|ens|enp|vmnic|br|wlan|wl' | grep -v 'lo' | head -1 | awk '{print \$2,\$10}')"`
     
     // 第三批：OS 和 CPU 型号
     const osCmd = `cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2`
